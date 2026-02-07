@@ -1,0 +1,11 @@
+numpy
+pandas
+yfinance
+jupyter
+matplotlib
+scikit-learn
+seaborn
+plotly
+statsmodels
+pandas-ta-classic
+pykalman
