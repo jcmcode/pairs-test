@@ -1,0 +1,436 @@
+\documentclass[12pt, a4paper]{article}
+
+% ============================================================
+% PACKAGES
+% ============================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, amsfonts}
+\usepackage{graphicx}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{natbib}
+\usepackage{setspace}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+\usepackage{tikz}
+
+% ============================================================
+% CONFIGURATION
+% ============================================================
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    citecolor=green!50!black,
+    urlcolor=blue!60!black,
+}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{gray!5},
+    frame=single,
+    rulecolor=\color{gray!30},
+    breaklines=true,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue!70!black},
+    commentstyle=\color{green!50!black},
+    stringstyle=\color{red!60!black},
+    language=Python,
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Transient Correlation Detection via Clustering}
+\fancyhead[R]{\small Queen's Quant Club}
+\fancyfoot[C]{\thepage}
+
+\onehalfspacing
+
+% ============================================================
+% TITLE
+% ============================================================
+\title{
+    \vspace{-1cm}
+    \textbf{Detecting and Predicting Transient Correlation Formations \\
+    Between Assets Using Clustering Algorithms} \\[0.5cm]
+    \large OPTICS, K-Means, and DBScan: \\
+    A Comparative Study in the Semiconductor Sector
+}
+
+\author{
+    % TODO: Add all group member names
+    Member 1 \and Member 2 \and Member 3 \and Jack Moores \\[0.3cm]
+    \normalsize Queen's University Quant Club
+}
+
+\date{February 2026}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{empty}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ============================================================
+% ABSTRACT
+% ============================================================
+\begin{abstract}
+% TODO: Write abstract (150-250 words)
+% Should cover:
+% - Problem: detecting transient (event-driven) correlations between assets
+% - Approach: OPTICS, K-Means, DBScan clustering on engineered features
+% - Universe: semiconductor sector equities
+% - Key findings: which method performed best, prediction AUC ranges, tradeable pair statistics
+% - Conclusion: practical applicability for pairs trading
+\end{abstract}
+
+% ============================================================
+% 1. INTRODUCTION
+% ============================================================
+\section{Introduction}
+
+% TODO: Write introduction (~1-1.5 pages)
+% Cover the following points:
+
+\subsection{Motivation}
+% - Traditional pairs trading relies on long-term cointegration
+% - Many profitable relationships are transient and event-driven
+% - News events, earnings, supply chain disruptions create short-lived correlations
+% - Need methods that can detect these formations in real time
+
+\subsection{Problem Statement}
+% - Given a universe of equities, detect when transient correlation formations occur
+% - Validate whether these formations represent tradeable mean-reverting relationships
+% - Predict when future formations will occur using historical feature patterns
+
+\subsection{Contributions}
+% - Application of three clustering algorithms (OPTICS, K-Means, DBScan) to transient correlation detection
+% - Comparative analysis across methods on the same dataset
+% - Factor attribution framework identifying which features precede formations
+% - Predictive modelling pipeline with time-series cross-validation
+
+\subsection{Report Structure}
+% - Brief overview of what each section covers
+
+% ============================================================
+% 2. LITERATURE REVIEW
+% ============================================================
+\section{Literature Review}
+
+% TODO: Write literature review (~1-1.5 pages)
+
+\subsection{Pairs Trading}
+% - Gatev et al. (2006) - distance method for pairs trading
+% - Vidyamurthy (2004) - cointegration-based pairs trading
+% - Limitations of traditional approaches: assume stationarity, miss transient relationships
+
+\subsection{Clustering in Finance}
+% - Applications of clustering to asset grouping and regime detection
+% - K-Means in portfolio construction
+% - Density-based methods for anomaly detection in markets
+
+\subsection{OPTICS and Density-Based Clustering}
+% - Ankerst et al. (1999) - OPTICS algorithm
+% - Advantages over DBScan for variable-density data
+% - Applications in financial time series
+
+\subsection{Event-Driven Correlations}
+% - Literature on how news events create transient correlation spikes
+% - Semiconductor sector as a case study (supply chain interdependencies)
+
+% ============================================================
+% 3. DATA
+% ============================================================
+\section{Data}
+
+% TODO: Write data section (~1 page)
+
+\subsection{Asset Universe}
+% - Table of tickers: NVDA, TSM, AMD, INTC, AVGO, QCOM, ASML, MU, WDC, STX, ARM, SNPS, CDNS
+% - Rationale for choosing the semiconductor sector
+% - S&P 500 (^GSPC) as market reference
+
+\subsection{Data Source and Period}
+% - Yahoo Finance via yfinance library
+% - Time period: [specify exact dates]
+% - Frequency: daily OHLCV data
+% - Any data cleaning steps (missing values, corporate actions)
+
+\subsection{Descriptive Statistics}
+% - Summary statistics table (mean return, volatility, correlation with SPX)
+% - Correlation heatmap of the asset universe
+
+% ============================================================
+% 4. FEATURE ENGINEERING
+% ============================================================
+\section{Feature Engineering}
+
+% TODO: Write feature engineering section (~1.5-2 pages)
+% This is a key section — the features drive the clustering
+
+\subsection{Overview}
+% - Features designed to capture market regime, momentum, and relative behaviour
+% - Multi-index DataFrame structure: (Datetime, Ticker) -> Feature columns
+
+\subsection{Momentum Features}
+% - Simple returns
+% - Rate of Change (ROC)
+% - MACD (Moving Average Convergence Divergence)
+% - RSI (Relative Strength Index)
+% - Include formulas for each
+
+\subsection{Volatility Features}
+% - Historical volatility (rolling standard deviation of returns)
+% - ATR (Average True Range)
+% - Include formulas
+
+\subsection{Correlation Features}
+% - Rolling correlation with S&P 500 (market beta proxy)
+% - Pairwise rolling correlations between stocks
+
+\subsection{Trend Features}
+% - Distance from moving averages (20-day, 50-day)
+% - Price relative to recent highs/lows
+
+\subsection{Technical Indicators}
+% - Bollinger Band position (% B)
+% - Stochastic oscillator
+% - Williams \%R
+% - Brief description of each and why included
+
+\subsection{Feature Normalisation}
+% - Standardisation approach (z-score normalisation per feature per timestamp)
+% - Handling of NaN values from rolling windows
+
+% ============================================================
+% 5. METHODOLOGY
+% ============================================================
+\section{Methodology}
+
+% TODO: Write methodology section (~3-4 pages — largest section)
+
+\subsection{Clustering Framework}
+% - General approach: apply clustering at each timestamp independently
+% - Input: feature vector per stock at time T
+% - Output: cluster labels per stock at time T
+% - Noise label (-1) for stocks not assigned to any cluster (OPTICS, DBScan)
+
+\subsection{OPTICS}
+% - Algorithm description
+% - Reachability distance and ordering
+% - Xi method for cluster extraction
+% - Parameters: min_samples=3, xi=0.05, min_cluster_size=3
+% - Advantages: variable-density clusters, no need to pre-specify k
+% - Include pseudocode or algorithm block
+
+\subsection{K-Means}
+% - Algorithm description
+% - Centroid-based, iterative assignment and update
+% - Choosing k: elbow method and silhouette analysis
+% - Parameters: [specify chosen k or selection method]
+% - Key difference: assigns every point to a cluster (no noise label)
+% - Limitations: assumes spherical clusters, requires specifying k
+% - Include pseudocode or algorithm block
+
+\subsection{DBScan}
+% - Algorithm description
+% - Eps-neighbourhood and core points
+% - Parameters: eps (tuned via k-distance graph), min_samples
+% - Produces noise labels like OPTICS
+% - Key difference from OPTICS: fixed density threshold
+% - Include pseudocode or algorithm block
+
+\subsection{Formation and Dissolution Detection}
+% - Definition of a formation event: pair transitions from different clusters to same cluster
+% - Definition of a dissolution event: pair transitions from same cluster to different clusters
+% - Tracking logic across timestamps
+% - Include diagram showing formation/dissolution timeline
+
+\subsection{Pair Validation}
+% - Cluster persistence: proportion of time pair remains co-clustered over window H
+% - Spread computation: beta-hedged spread = Price(A) - beta * Price(B)
+% - AR(1) coefficient (phi): mean reversion speed
+% - Bounce rate: proportion of spread excursions reverting >= 30\% within 2 periods
+% - Composite score for filtering tradeable pairs
+% - Include formulas for each metric
+
+\subsection{Correctness Checks}
+% - Random baseline permutation test
+% - Out-of-sample train/test split
+% - OPTICS sensitivity analysis (varying xi)
+
+\subsection{Factor Attribution}
+% - Z-score comparison: feature values at formation times vs baseline
+% - Formula: Z = (feature_at_formation - mean_baseline) / std_baseline
+% - Identifies which features precede formations
+
+\subsection{Predictive Modelling}
+% - Classification task: predict formation at time T using features at T-1
+% - Class imbalance handling (~2-5\% positive rate)
+% - Time-series cross-validation (expanding window, no look-ahead bias)
+% - Models: Random Forest Classifier, Gradient Boosting Classifier
+% - Hyperparameters: [specify]
+% - Evaluation metrics: AUC, precision, recall, accuracy
+
+% ============================================================
+% 6. RESULTS
+% ============================================================
+\section{Results}
+
+% TODO: Write results section (~2-3 pages)
+
+\subsection{OPTICS Clustering Results}
+% - Number of clusters detected per timestamp (distribution)
+% - Number of formation/dissolution events
+% - Random baseline comparison (real vs shuffled formation rates)
+% - Sensitivity analysis results (varying xi)
+% - Include: cluster distribution plot, formation timeline
+
+\subsection{K-Means Clustering Results}
+% - Optimal k selection (elbow plot, silhouette scores)
+% - Number of formations detected
+% - Comparison to OPTICS on same data
+% - Include: elbow plot, silhouette plot
+
+\subsection{DBScan Clustering Results}
+% - Eps selection (k-distance graph)
+% - Number of formations detected
+% - Noise point proportion
+% - Comparison to OPTICS on same data
+% - Include: k-distance plot
+
+\subsection{Comparative Analysis}
+% - Side-by-side table: OPTICS vs K-Means vs DBScan
+% - Metrics: number of clusters, formations, tradeable pairs, cluster persistence
+% - Strengths and weaknesses of each method on this dataset
+% - Include: comparison table, bar charts
+
+\subsection{Pair Validation Results}
+% - Distribution of cluster persistence scores
+% - Distribution of bounce rates
+% - Top tradeable pairs and their metrics
+% - Include: validation metrics table for top pairs
+
+\subsection{Factor Attribution Results}
+% - Z-score bar chart: which features are most unusual at formation times
+% - Feature distribution overlays (baseline vs formation)
+% - Key findings: e.g., RSI and correlation are strongest predictors
+
+\subsection{Prediction Results}
+% - Model performance comparison (Random Forest vs Gradient Boosting)
+% - ROC curves with AUC scores
+% - Precision-recall curves
+% - Feature importance rankings
+% - Cross-validation fold-by-fold results
+% - Include: ROC plot, precision-recall plot, feature importance bar chart
+
+% ============================================================
+% 7. DISCUSSION
+% ============================================================
+\section{Discussion}
+
+% TODO: Write discussion (~1-1.5 pages)
+
+\subsection{Interpretation of Results}
+% - Which clustering method best captures transient correlations and why
+% - Why OPTICS may outperform (variable density, no k specification)
+% - Why K-Means may struggle (spherical assumption, forced assignment)
+% - Where DBScan fits (fixed density threshold trade-off)
+
+\subsection{Practical Implications}
+% - How a trader could use this framework
+% - Signal generation: formation detection -> spread monitoring -> entry/exit
+% - Risk considerations: bounce rate as confidence measure
+
+\subsection{Limitations}
+% - Transaction costs not modelled
+% - Semiconductor sector only (generalisability unknown)
+% - Formation prediction AUC modest (~0.60-0.75)
+% - Feature engineering choices may introduce bias
+% - Daily frequency limits applicability to intraday trading
+
+% ============================================================
+% 8. CONCLUSION AND FUTURE WORK
+% ============================================================
+\section{Conclusion and Future Work}
+
+% TODO: Write conclusion (~0.5-1 page)
+
+\subsection{Summary}
+% - Recap: what we did, what we found, which method works best
+
+\subsection{Future Work}
+% - Real-time deployment and live testing
+% - Multi-timeframe analysis (hourly + daily)
+% - Sector expansion beyond semiconductors
+% - Additional features: volume, options implied volatility, order flow
+% - Trading module: full backtest with transaction costs and slippage
+% - Ensemble approach: combine predictions from all three clustering methods
+
+% ============================================================
+% REFERENCES
+% ============================================================
+\newpage
+\bibliographystyle{plainnat}
+% \bibliography{references}  % Uncomment when references.bib is created
+
+% Placeholder references — replace with .bib file
+\begin{thebibliography}{99}
+
+\bibitem{gatev2006}
+Gatev, E., Goetzmann, W.N. and Rouwenhorst, K.G., 2006.
+Pairs trading: Performance of a relative-value arbitrage rule.
+\textit{The Review of Financial Studies}, 19(3), pp.797--827.
+
+\bibitem{vidyamurthy2004}
+Vidyamurthy, G., 2004.
+\textit{Pairs Trading: Quantitative Methods and Analysis}.
+John Wiley \& Sons.
+
+\bibitem{ankerst1999}
+Ankerst, M., Breunig, M.M., Kriegel, H.P. and Sander, J., 1999.
+OPTICS: Ordering points to identify the clustering structure.
+\textit{ACM SIGMOD Record}, 28(2), pp.49--60.
+
+\bibitem{ester1996}
+Ester, M., Kriegel, H.P., Sander, J. and Xu, X., 1996.
+A density-based algorithm for discovering clusters in large spatial databases with noise.
+\textit{Proceedings of the 2nd International Conference on Knowledge Discovery and Data Mining (KDD-96)}, pp.226--231.
+
+\bibitem{macqueen1967}
+MacQueen, J., 1967.
+Some methods for classification and analysis of multivariate observations.
+\textit{Proceedings of the 5th Berkeley Symposium on Mathematical Statistics and Probability}, 1, pp.281--297.
+
+% TODO: Add more references as needed
+
+\end{thebibliography}
+
+% ============================================================
+% APPENDIX
+% ============================================================
+\newpage
+\appendix
+
+\section{Full Feature List}
+% TODO: Table listing every feature, its formula, and its category
+
+\section{Additional Plots}
+% TODO: Any supplementary figures not in the main body
+
+\section{Code Repository}
+% TODO: Link to GitHub repo or brief description of code structure
+
+\end{document}
