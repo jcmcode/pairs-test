@@ -53,17 +53,16 @@ def ar1_phi(x: pd.Series) -> float:
 
 def bounce_rate(spread: pd.Series, W: int, z_entry: float, horizon: int = 2, improve: float = 0.30) -> float:
     """
-    Uses z-score computed on the same window W (no optimization).
+    Uses z-score computed on a rolling window W over the full spread.
     Event: |z| >= z_entry
     Bounce: |z| shrinks by >= improve within next horizon steps.
     """
     if len(spread) < W + horizon + 2:
         return np.nan
 
-    s = spread.iloc[-(W + horizon):].copy()
-    mu = s.rolling(W).mean()
-    sd = s.rolling(W).std(ddof=1)
-    z = (s - mu) / sd
+    mu = spread.rolling(W).mean()
+    sd = spread.rolling(W).std(ddof=1)
+    z = (spread - mu) / sd
 
     events = 0
     bounces = 0
@@ -222,11 +221,13 @@ def hedge_ratio_drift(beta_cal, beta_exploit):
     Measure how much the hedge ratio drifted between calibration and
     exploitation windows.
 
-    Returns abs(beta_exploit - beta_cal) / abs(beta_cal).
+    Returns abs(beta_exploit - beta_cal) / max(abs(beta_cal), 0.1).
+    The denominator floor of 0.1 prevents inflated drift when beta_cal
+    is small.
     """
-    if beta_cal == 0 or not np.isfinite(beta_cal) or not np.isfinite(beta_exploit):
+    if not np.isfinite(beta_cal) or not np.isfinite(beta_exploit):
         return np.nan
-    return abs(beta_exploit - beta_cal) / abs(beta_cal)
+    return abs(beta_exploit - beta_cal) / max(abs(beta_cal), 0.1)
 
 
 def spread_cv_normalized(spread, prices_a, prices_b):
