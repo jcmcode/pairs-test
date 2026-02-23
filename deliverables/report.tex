@@ -1,436 +1,430 @@
-\documentclass[12pt, a4paper]{article}
+\documentclass[11pt, a4paper]{article}
 
-% ============================================================
+% ============================================================================
 % PACKAGES
-% ============================================================
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{amsmath, amssymb, amsfonts}
-\usepackage{graphicx}
+% ============================================================================
 \usepackage[margin=1in]{geometry}
-\usepackage{hyperref}
+\usepackage{amsmath, amssymb}
 \usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
 \usepackage{float}
+\usepackage{enumitem}
 \usepackage{caption}
 \usepackage{subcaption}
-\usepackage{algorithm}
-\usepackage{algorithmic}
-\usepackage{listings}
-\usepackage{xcolor}
-\usepackage{natbib}
-\usepackage{setspace}
 \usepackage{fancyhdr}
-\usepackage{enumitem}
-\usepackage{tikz}
+\usepackage{titlesec}
+\usepackage{parskip}
 
-% ============================================================
-% CONFIGURATION
-% ============================================================
-\hypersetup{
-    colorlinks=true,
-    linkcolor=blue!70!black,
-    citecolor=green!50!black,
-    urlcolor=blue!60!black,
-}
-
-\lstset{
-    basicstyle=\ttfamily\small,
-    backgroundcolor=\color{gray!5},
-    frame=single,
-    rulecolor=\color{gray!30},
-    breaklines=true,
-    numbers=left,
-    numberstyle=\tiny\color{gray},
-    keywordstyle=\color{blue!70!black},
-    commentstyle=\color{green!50!black},
-    stringstyle=\color{red!60!black},
-    language=Python,
-}
-
+% ============================================================================
+% STYLING
+% ============================================================================
+\hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue, citecolor=black}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small Transient Correlation Detection via Clustering}
-\fancyhead[R]{\small Queen's Quant Club}
-\fancyfoot[C]{\thepage}
+\rhead{Queen's Quant Club}
+\lhead{Clustering-Driven Pair Discovery}
+\rfoot{Page \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
 
-\onehalfspacing
+\titleformat{\section}{\Large\bfseries}{}{0em}{}[\vspace{-0.5em}\rule{\textwidth}{0.4pt}]
+\titleformat{\subsection}{\large\bfseries}{}{0em}{}
 
-% ============================================================
+% ============================================================================
 % TITLE
-% ============================================================
+% ============================================================================
 \title{
     \vspace{-1cm}
-    \textbf{Detecting and Predicting Transient Correlation Formations \\
-    Between Assets Using Clustering Algorithms} \\[0.5cm]
-    \large OPTICS, K-Means, and DBScan: \\
-    A Comparative Study in the Semiconductor Sector
+    \textbf{Clustering-Driven Pair Discovery in Semiconductor Equities} \\[0.3cm]
+    \large Using Unsupervised Learning to Identify and Validate \\
+    Mean-Reverting Relationships Across Multiple Algorithms
 }
-
 \author{
-    % TODO: Add all group member names
-    Member 1 \and Member 2 \and Member 3 \and Jack Moores \\[0.3cm]
-    \normalsize Queen's University Quant Club
+    % TODO: Add your name(s) here
+    Queen's Quant Club
 }
+\date{\today}
 
-\date{February 2026}
-
+% ============================================================================
+% DOCUMENT
+% ============================================================================
 \begin{document}
-
 \maketitle
-\thispagestyle{empty}
+\thispagestyle{fancy}
 
-\newpage
+% ============================================================================
+% ABSTRACT
+% ============================================================================
+\begin{abstract}
+We present a clustering-based framework for discovering tradeable pairs among 40 semiconductor stocks using 11 months of hourly data. Three unsupervised learning algorithms---OPTICS, DBSCAN, and KMeans---are applied independently to rolling feature snapshots to identify stocks exhibiting similar short-term behaviour. Despite fundamental differences in their clustering mechanics, all three algorithms converge on the same top pairs, revealing genuine subsector relationships (equipment, RF, analog, EDA) without any fundamental data as input. We validate discovered pairs using classical pairs trading criteria---Engle-Granger cointegration, half-life of mean reversion, and the Hurst exponent---with a strict 67/33 calibration/out-of-sample split. Of 33 filtered pairs, 26 pass at least two of three criteria, and 14 of 26 tradeable pairs produce positive out-of-sample P\&L under a z-score mean-reversion strategy. We document both the strengths and limitations of this approach, including a detailed analysis of look-ahead bias and the finding that cross-algorithm consensus does not predict out-of-sample profitability.
+
+% TODO: Refine abstract once final edits are complete.
+\end{abstract}
+
 \tableofcontents
 \newpage
 
-% ============================================================
-% ABSTRACT
-% ============================================================
-\begin{abstract}
-% TODO: Write abstract (150-250 words)
-% Should cover:
-% - Problem: detecting transient (event-driven) correlations between assets
-% - Approach: OPTICS, K-Means, DBScan clustering on engineered features
-% - Universe: semiconductor sector equities
-% - Key findings: which method performed best, prediction AUC ranges, tradeable pair statistics
-% - Conclusion: practical applicability for pairs trading
-\end{abstract}
-
-% ============================================================
+% ============================================================================
 % 1. INTRODUCTION
-% ============================================================
+% ============================================================================
 \section{Introduction}
 
-% TODO: Write introduction (~1-1.5 pages)
-% Cover the following points:
+% TODO: Expand with broader motivation---why pairs trading, why semiconductors,
+% why clustering as an alternative to traditional cointegration screening.
 
-\subsection{Motivation}
-% - Traditional pairs trading relies on long-term cointegration
-% - Many profitable relationships are transient and event-driven
-% - News events, earnings, supply chain disruptions create short-lived correlations
-% - Need methods that can detect these formations in real time
+Pairs trading is among the oldest systematic strategies in quantitative finance, yet the first step---\textit{which} pairs to trade---is often approached naively. Traditional methods screen for cointegration across all $\binom{N}{2}$ combinations, which scales poorly and produces many spurious results.
 
-\subsection{Problem Statement}
-% - Given a universe of equities, detect when transient correlation formations occur
-% - Validate whether these formations represent tradeable mean-reverting relationships
-% - Predict when future formations will occur using historical feature patterns
+We propose an alternative: use unsupervised clustering on real-time feature data to let the algorithm \textit{discover} which stocks are behaving similarly at any given moment. When two stocks consistently land in the same cluster, it signals a relationship worth investigating with classical statistical tests.
 
-\subsection{Contributions}
-% - Application of three clustering algorithms (OPTICS, K-Means, DBScan) to transient correlation detection
-% - Comparative analysis across methods on the same dataset
-% - Factor attribution framework identifying which features precede formations
-% - Predictive modelling pipeline with time-series cross-validation
+This report applies three clustering algorithms to 40 semiconductor stocks over approximately 11 months of hourly data (March 2025 to February 2026). The key questions are:
 
-\subsection{Report Structure}
-% - Brief overview of what each section covers
+\begin{enumerate}
+    \item Do clustering algorithms reliably identify structurally related pairs?
+    \item Do the discovered pairs exhibit mean-reverting spreads suitable for pairs trading?
+    \item How do the three algorithms compare, and does cross-algorithm agreement add value?
+    \item Do results survive honest out-of-sample validation?
+\end{enumerate}
 
-% ============================================================
-% 2. LITERATURE REVIEW
-% ============================================================
-\section{Literature Review}
+% ============================================================================
+% 2. DATA & FEATURE ENGINEERING
+% ============================================================================
+\section{Data and Feature Engineering}
 
-% TODO: Write literature review (~1-1.5 pages)
+\subsection{Universe and Data}
 
-\subsection{Pairs Trading}
-% - Gatev et al. (2006) - distance method for pairs trading
-% - Vidyamurthy (2004) - cointegration-based pairs trading
-% - Limitations of traditional approaches: assume stationarity, miss transient relationships
+Our universe consists of 40 semiconductor tickers spanning megacap leaders (NVDA, TSM, AVGO), equipment manufacturers (AMAT, LRCX, KLAC), specialized chip companies (QRVO, SWKS, NXPI), EDA vendors (CDNS, SNPS), and mid-caps (GFS, MRVL, CAMT). Hourly OHLCV data is sourced from Yahoo Finance, covering March 11, 2025 to February 9, 2026 ($\sim$1,580 hourly timestamps).
 
-\subsection{Clustering in Finance}
-% - Applications of clustering to asset grouping and regime detection
-% - K-Means in portfolio construction
-% - Density-based methods for anomaly detection in markets
+% TODO: Add full ticker list in appendix if desired.
 
-\subsection{OPTICS and Density-Based Clustering}
-% - Ankerst et al. (1999) - OPTICS algorithm
-% - Advantages over DBScan for variable-density data
-% - Applications in financial time series
+The S\&P 500 (\texttt{\^{}GSPC}) is included as a market factor but excluded from clustering.
 
-\subsection{Event-Driven Correlations}
-% - Literature on how news events create transient correlation spikes
-% - Semiconductor sector as a case study (supply chain interdependencies)
+\subsection{Feature Construction}
 
-% ============================================================
-% 3. DATA
-% ============================================================
-\section{Data}
+At each hourly timestamp, we compute 9 features per ticker, designed to capture the current \textit{regime} a stock is operating in:
 
-% TODO: Write data section (~1 page)
+\begin{table}[H]
+\centering
+\caption{Feature set for clustering.}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Category} & \textbf{Feature} & \textbf{Window} \\
+\midrule
+Volatility      & Short-term rolling $\sigma$           & 50h ($\sim$1 week) \\
+Market exposure & Rolling $\beta$ to S\&P 500           & 50h \\
+Sector exposure & Rolling $\beta$ to leave-one-out sector avg & 50h \\
+Momentum        & RSI                                    & 70h ($\sim$2 weeks) \\
+Momentum        & 5-hour return                          & Instantaneous \\
+Regime shift    & $\Delta\sigma$ (short $-$ medium vol)  & 50h vs.\ 147h \\
+Regime shift    & $\Delta\beta_{\text{SPX}}$ (short $-$ medium) & 50h vs.\ 147h \\
+Regime shift    & $\Delta\beta_{\text{sector}}$ (short $-$ medium) & 50h vs.\ 147h \\
+Returns         & Hourly return                          & Instantaneous \\
+\bottomrule
+\end{tabular}
+\label{tab:features}
+\end{table}
 
-\subsection{Asset Universe}
-% - Table of tickers: NVDA, TSM, AMD, INTC, AVGO, QCOM, ASML, MU, WDC, STX, ARM, SNPS, CDNS
-% - Rationale for choosing the semiconductor sector
-% - S&P 500 (^GSPC) as market reference
+The regime shift features (short-window minus medium-window) are designed to detect \textit{when} a stock's behaviour is changing relative to its recent baseline---exactly the signal relevant for transient relationship formation.
 
-\subsection{Data Source and Period}
-% - Yahoo Finance via yfinance library
-% - Time period: [specify exact dates]
-% - Frequency: daily OHLCV data
-% - Any data cleaning steps (missing values, corporate actions)
+Before clustering, features are standardized (zero mean, unit variance) and reduced via PCA retaining 90\% of explained variance.
 
-\subsection{Descriptive Statistics}
-% - Summary statistics table (mean return, volatility, correlation with SPX)
-% - Correlation heatmap of the asset universe
+% ============================================================================
+% 3. CLUSTERING METHODOLOGY
+% ============================================================================
+\section{Clustering Methodology}
 
-% ============================================================
-% 4. FEATURE ENGINEERING
-% ============================================================
-\section{Feature Engineering}
-
-% TODO: Write feature engineering section (~1.5-2 pages)
-% This is a key section — the features drive the clustering
-
-\subsection{Overview}
-% - Features designed to capture market regime, momentum, and relative behaviour
-% - Multi-index DataFrame structure: (Datetime, Ticker) -> Feature columns
-
-\subsection{Momentum Features}
-% - Simple returns
-% - Rate of Change (ROC)
-% - MACD (Moving Average Convergence Divergence)
-% - RSI (Relative Strength Index)
-% - Include formulas for each
-
-\subsection{Volatility Features}
-% - Historical volatility (rolling standard deviation of returns)
-% - ATR (Average True Range)
-% - Include formulas
-
-\subsection{Correlation Features}
-% - Rolling correlation with S&P 500 (market beta proxy)
-% - Pairwise rolling correlations between stocks
-
-\subsection{Trend Features}
-% - Distance from moving averages (20-day, 50-day)
-% - Price relative to recent highs/lows
-
-\subsection{Technical Indicators}
-% - Bollinger Band position (% B)
-% - Stochastic oscillator
-% - Williams \%R
-% - Brief description of each and why included
-
-\subsection{Feature Normalisation}
-% - Standardisation approach (z-score normalisation per feature per timestamp)
-% - Handling of NaN values from rolling windows
-
-% ============================================================
-% 5. METHODOLOGY
-% ============================================================
-\section{Methodology}
-
-% TODO: Write methodology section (~3-4 pages — largest section)
-
-\subsection{Clustering Framework}
-% - General approach: apply clustering at each timestamp independently
-% - Input: feature vector per stock at time T
-% - Output: cluster labels per stock at time T
-% - Noise label (-1) for stocks not assigned to any cluster (OPTICS, DBScan)
+We apply three fundamentally different clustering algorithms to the same feature data, running each independently at every valid hourly timestamp.
 
 \subsection{OPTICS}
-% - Algorithm description
-% - Reachability distance and ordering
-% - Xi method for cluster extraction
-% - Parameters: min_samples=3, xi=0.05, min_cluster_size=3
-% - Advantages: variable-density clusters, no need to pre-specify k
-% - Include pseudocode or algorithm block
 
-\subsection{K-Means}
-% - Algorithm description
-% - Centroid-based, iterative assignment and update
-% - Choosing k: elbow method and silhouette analysis
-% - Parameters: [specify chosen k or selection method]
-% - Key difference: assigns every point to a cluster (no noise label)
-% - Limitations: assumes spherical clusters, requires specifying k
-% - Include pseudocode or algorithm block
+OPTICS (Ordering Points To Identify the Clustering Structure) is a density-based algorithm that does not require specifying the number of clusters \textit{a priori}. It identifies clusters of varying density and assigns a noise label ($-1$) to points that do not fit any cluster.
 
-\subsection{DBScan}
-% - Algorithm description
-% - Eps-neighbourhood and core points
-% - Parameters: eps (tuned via k-distance graph), min_samples
-% - Produces noise labels like OPTICS
-% - Key difference from OPTICS: fixed density threshold
-% - Include pseudocode or algorithm block
+\textbf{Parameters:} \texttt{min\_samples=3}, \texttt{xi=0.05}, \texttt{min\_cluster\_size=3}.
 
-\subsection{Formation and Dissolution Detection}
-% - Definition of a formation event: pair transitions from different clusters to same cluster
-% - Definition of a dissolution event: pair transitions from same cluster to different clusters
-% - Tracking logic across timestamps
-% - Include diagram showing formation/dissolution timeline
+OPTICS produces a high noise rate ($\sim$58\%), meaning most tickers at most timestamps are not assigned to any cluster. This is by design---it only forms clusters when there is genuine feature similarity. We address the resulting frequency bias through noise-adjusted co-clustering rates (Section~\ref{sec:noise}).
 
-\subsection{Pair Validation}
-% - Cluster persistence: proportion of time pair remains co-clustered over window H
-% - Spread computation: beta-hedged spread = Price(A) - beta * Price(B)
-% - AR(1) coefficient (phi): mean reversion speed
-% - Bounce rate: proportion of spread excursions reverting >= 30\% within 2 periods
-% - Composite score for filtering tradeable pairs
-% - Include formulas for each metric
+\subsection{DBSCAN}
 
-\subsection{Correctness Checks}
-% - Random baseline permutation test
-% - Out-of-sample train/test split
-% - OPTICS sensitivity analysis (varying xi)
+DBSCAN uses a fixed density threshold ($\varepsilon$) and requires a minimum number of points to form a cluster. We use an adaptive $\varepsilon$ selection based on the k-nearest-neighbour distance distribution at each timestamp.
 
-\subsection{Factor Attribution}
-% - Z-score comparison: feature values at formation times vs baseline
-% - Formula: Z = (feature_at_formation - mean_baseline) / std_baseline
-% - Identifies which features precede formations
+\textbf{Noise rate:} $\sim$28\%. Lower than OPTICS because the fixed threshold is less conservative.
 
-\subsection{Predictive Modelling}
-% - Classification task: predict formation at time T using features at T-1
-% - Class imbalance handling (~2-5\% positive rate)
-% - Time-series cross-validation (expanding window, no look-ahead bias)
-% - Models: Random Forest Classifier, Gradient Boosting Classifier
-% - Hyperparameters: [specify]
-% - Evaluation metrics: AUC, precision, recall, accuracy
+\subsection{KMeans}
 
-% ============================================================
-% 6. RESULTS
-% ============================================================
-\section{Results}
+KMeans is centroid-based and assigns every point to a cluster (no native noise concept). We select $k$ at each timestamp via silhouette score optimization and apply a post-hoc noise filter: tickers with silhouette score below a threshold are reclassified as noise.
 
-% TODO: Write results section (~2-3 pages)
+\textbf{Effective noise rate:} $\sim$10\% after filtering.
 
-\subsection{OPTICS Clustering Results}
-% - Number of clusters detected per timestamp (distribution)
-% - Number of formation/dissolution events
-% - Random baseline comparison (real vs shuffled formation rates)
-% - Sensitivity analysis results (varying xi)
-% - Include: cluster distribution plot, formation timeline
+\subsection{Noise-Adjusted Co-Clustering Frequency}
+\label{sec:noise}
 
-\subsection{K-Means Clustering Results}
-% - Optimal k selection (elbow plot, silhouette scores)
-% - Number of formations detected
-% - Comparison to OPTICS on same data
-% - Include: elbow plot, silhouette plot
+For density-based algorithms, raw co-clustering frequency (count / total timestamps) is misleading because many timestamps have one or both tickers in noise. We define:
 
-\subsection{DBScan Clustering Results}
-% - Eps selection (k-distance graph)
-% - Number of formations detected
-% - Noise point proportion
-% - Comparison to OPTICS on same data
-% - Include: k-distance plot
+\[
+f_{\text{adj}}(A, B) = \frac{\text{co-cluster count}(A, B)}{|\{t : A \notin \text{noise at } t \text{ and } B \notin \text{noise at } t\}|}
+\]
 
-\subsection{Comparative Analysis}
-% - Side-by-side table: OPTICS vs K-Means vs DBScan
-% - Metrics: number of clusters, formations, tradeable pairs, cluster persistence
-% - Strengths and weaknesses of each method on this dataset
-% - Include: comparison table, bar charts
+This measures: \textit{when both stocks are actually in real clusters, how often are they in the same one?}
 
-\subsection{Pair Validation Results}
-% - Distribution of cluster persistence scores
-% - Distribution of bounce rates
-% - Top tradeable pairs and their metrics
-% - Include: validation metrics table for top pairs
+% ============================================================================
+% 4. ALGORITHM COMPARISON
+% ============================================================================
+\section{Algorithm Comparison}
 
-\subsection{Factor Attribution Results}
-% - Z-score bar chart: which features are most unusual at formation times
-% - Feature distribution overlays (baseline vs formation)
-% - Key findings: e.g., RSI and correlation are strongest predictors
+\subsection{Clustering Quality}
 
-\subsection{Prediction Results}
-% - Model performance comparison (Random Forest vs Gradient Boosting)
-% - ROC curves with AUC scores
-% - Precision-recall curves
-% - Feature importance rankings
-% - Cross-validation fold-by-fold results
-% - Include: ROC plot, precision-recall plot, feature importance bar chart
+\begin{table}[H]
+\centering
+\caption{Clustering quality metrics across algorithms.}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Metric} & \textbf{OPTICS} & \textbf{DBSCAN} & \textbf{KMeans} \\
+\midrule
+Valid clustering windows   & 1,362  & 1,579  & 1,579  \\
+Avg clusters per timestamp & 3.3    & 1.5    & 3.1    \\
+Avg noise rate             & 58\%   & 28\%   & $\sim$10\% \\
+OOS stability ($r$)        & 0.671  & 0.832  & 0.627  \\
+\bottomrule
+\end{tabular}
+\label{tab:algo-quality}
+\end{table}
 
-% ============================================================
-% 7. DISCUSSION
-% ============================================================
+OOS stability is measured as the Pearson correlation of co-clustering frequencies between the first 67\% and last 33\% of timestamps. Higher values indicate that pairs identified in the training period continue to cluster together out of sample.
+
+% TODO: Consider adding commentary on why DBSCAN has highest OOS stability.
+
+\subsection{Consensus Pairs}
+
+Despite their fundamental differences, all three algorithms identify the same top pairs. Eight pairs appear in every algorithm's top-20 by co-clustering frequency:
+
+\begin{table}[H]
+\centering
+\caption{Consensus pairs: appearing in all three algorithms' top-20.}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Pair} & \textbf{OPTICS} & \textbf{KMeans} & \textbf{DBSCAN} & \textbf{Subsector} \\
+\midrule
+KLAC--LRCX  & 0.378 & 0.785 & 0.851 & Equipment \\
+QRVO--SWKS  & 0.372 & 0.888 & 0.828 & RF \\
+AMAT--LRCX  & 0.363 & 0.824 & 0.845 & Equipment \\
+AMAT--KLAC  & 0.340 & 0.807 & 0.814 & Equipment \\
+ADI--NXPI   & 0.279 & 0.816 & 0.900 & Analog \\
+ADI--TXN    & 0.278 & 0.887 & 0.817 & Analog \\
+NXPI--TXN   & 0.223 & 0.819 & 0.806 & Analog \\
+ADI--SWKS   & 0.216 & 0.830 & 0.830 & Analog/RF \\
+\bottomrule
+\end{tabular}
+\label{tab:consensus}
+\end{table}
+
+The convergence across algorithms is strong evidence that these relationships are real---driven by shared business fundamentals---rather than artefacts of any single algorithm's mechanics. Note that OPTICS frequencies are 2--4$\times$ lower due to its higher noise rate; the noise-adjusted frequencies are comparable.
+
+\subsection{Statistical Significance}
+
+We validate co-clustering significance using a feature-shuffle permutation test. At each of 80 sampled timestamps across 30 permutations, we shuffle feature vectors across tickers (preserving cross-feature correlation but breaking the ticker-feature mapping) and re-run the full StandardScaler $\to$ PCA $\to$ OPTICS pipeline.
+
+Eleven pairs achieve $Z > 1.96$ (significant at $p < 0.05$), confirming their co-clustering frequency exceeds what would arise from random feature assignment.
+
+% TODO: Add permutation test details to appendix if space allows.
+
+% ============================================================================
+% 5. PAIR VALIDATION
+% ============================================================================
+\section{Pair Validation}
+
+\subsection{Classical Pairs Trading Criteria}
+
+We test each discovered pair (noise-adjusted frequency $> 0.15$, yielding 33 pairs) against three classical pairs trading criteria, computed on the \textbf{calibration window only} (first 67\% of daily observations):
+
+\begin{enumerate}
+    \item \textbf{Engle-Granger cointegration} ($p < 0.05$, tested in both directions, minimum $p$-value used)
+    \item \textbf{Half-life of mean reversion} (5--60 days, estimated via AR(1) regression on the spread)
+    \item \textbf{Hurst exponent} ($< 0.5$, estimated via variance ratio method)
+\end{enumerate}
+
+Hedge ratios are estimated via OLS on the calibration window. The spread is defined as $S_t = P_t^A - \hat{\beta} P_t^B$.
+
+\subsection{Results}
+
+\begin{table}[H]
+\centering
+\caption{Pair validation summary (calibration window).}
+\begin{tabular}{@{}lcl@{}}
+\toprule
+\textbf{Category} & \textbf{Count} & \textbf{Description} \\
+\midrule
+Tested          & 33 & Noise-adjusted frequency $> 0.15$ \\
+Passed (3/3)    & 4  & Cointegrated + half-life 5--60d + Hurst $< 0.5$ \\
+Near-miss (2/3) & 22 & Typically passed half-life + Hurst, failed cointegration \\
+Failed (0--1/3) & 7  & Trending spread or impractical half-life \\
+\bottomrule
+\end{tabular}
+\label{tab:validation-summary}
+\end{table}
+
+The four pairs passing all three criteria are ADI--NXPI, ADI--QRVO, ADI--SWKS, and QCOM--QRVO. The 22 near-miss pairs typically exhibit mean-reverting behaviour (Hurst $< 0.5$, reasonable half-life) but fail formal cointegration. This is consistent with the transient nature of the relationships: they form and dissolve over time, so a test assuming permanent equilibrium often rejects.
+
+The 7 failures include equipment pairs (AMAT--LRCX, AMAT--KLAC) where the spread \textit{trends} rather than reverts (Hurst $> 0.5$), and STX--WDC where the half-life (96.6 days) is too slow for practical trading.
+
+% ============================================================================
+% 6. OUT-OF-SAMPLE BACKTESTING
+% ============================================================================
+\section{Out-of-Sample Backtesting}
+
+\subsection{Strategy}
+
+All 26 tradeable pairs (passed or near-miss) are backtested on the \textbf{out-of-sample window} (last 33\% of daily data, $\sim$3.5 months) using a standard z-score mean-reversion strategy:
+
+\begin{itemize}
+    \item \textbf{Lookback:} 20 days rolling mean and standard deviation
+    \item \textbf{Entry:} $|z| \geq 2.0$ (long spread when $z \leq -2$, short when $z \geq 2$)
+    \item \textbf{Exit:} $|z| \leq 0.5$
+    \item \textbf{Hedge ratio:} Fixed, estimated on calibration window via OLS
+\end{itemize}
+
+% TODO: Consider noting transaction cost assumptions (currently zero).
+
+\subsection{Results}
+
+\begin{table}[H]
+\centering
+\caption{Top 10 pairs by out-of-sample Sharpe ratio.}
+\small
+\begin{tabular}{@{}lcccccccc@{}}
+\toprule
+\textbf{Pair} & \textbf{Freq} & \textbf{Coint $p$} & \textbf{Half-Life} & \textbf{Hurst} & \textbf{Trades} & \textbf{P\&L} & \textbf{Sharpe} & \textbf{Win\%} \\
+\midrule
+NXPI--ON     & 0.173 & 0.271 & 8.6d  & 0.413 & 2 & 6.56  & 3.55 & 100\% \\
+CDNS--SNPS   & 0.199 & 0.620 & 21.5d & 0.447 & 3 & 36.26 & 2.08 & 100\% \\
+QCOM--QRVO   & 0.228 & 0.019 & 5.3d  & 0.205 & 2 & 47.46 & 1.44 & 100\% \\
+KLAC--TSM    & 0.192 & 0.006 & 3.6d  & 0.181 & 2 & 47.55 & 1.35 & 100\% \\
+LRCX--NVMI   & 0.152 & 0.422 & 13.2d & 0.440 & 2 & 16.19 & 1.04 & 100\% \\
+NXPI--POWI   & 0.186 & 0.568 & 13.5d & 0.372 & 5 & 37.32 & 0.85 & 80\% \\
+MCHP--ON     & 0.200 & 0.039 & 5.2d  & 0.313 & 3 & 3.62  & 0.65 & 67\% \\
+ADI--TXN     & 0.278 & 0.875 & 52.4d & 0.422 & 3 & 10.32 & 0.33 & 33\% \\
+MCHP--NXPI   & 0.230 & 0.237 & 8.6d  & 0.332 & 2 & 2.00  & 0.33 & 50\% \\
+QRVO--SWKS   & 0.372 & 0.232 & 9.2d  & 0.409 & 2 & 0.62  & 0.28 & 50\% \\
+\bottomrule
+\end{tabular}
+\label{tab:oos-results}
+\end{table}
+
+Of the 26 tradeable pairs, \textbf{14 (54\%) produced positive out-of-sample P\&L}. The top performers---NXPI--ON (Sharpe 3.55), CDNS--SNPS (2.08), QCOM--QRVO (1.44)---show genuine out-of-sample profitability.
+
+\textbf{Important caveat:} Trade counts are low (2--5 per pair over $\sim$3.5 months). While the directional results are encouraging, they are not statistically sufficient to draw strong conclusions about individual pair profitability.
+
+\subsection{Look-Ahead Bias Analysis}
+
+An earlier version of this analysis estimated hedge ratios on the full data period and backtested on the same data, yielding 23/23 pairs profitable with 80--100\% win rates. After implementing the proper calibration/OOS split:
+
+\begin{itemize}
+    \item Profitable pairs dropped from 23/23 to 14/26
+    \item Several pairs that looked excellent in-sample showed OOS losses (e.g., ADI--NXPI: in-sample Sharpe 1.08 $\to$ OOS Sharpe $-1.76$)
+    \item Top performers remained strong, confirming genuine signal
+\end{itemize}
+
+This underscores the critical importance of out-of-sample validation in any quantitative strategy.
+
+\subsection{Consensus Does Not Predict OOS Performance}
+
+\begin{table}[H]
+\centering
+\caption{Consensus vs.\ non-consensus out-of-sample performance.}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Group} & \textbf{Tradeable} & \textbf{Passed} & \textbf{Avg Sharpe} & \textbf{Avg P\&L} \\
+\midrule
+Consensus (all 3 algorithms)     & 6  & 2 & $-0.251$ & $-13.73$ \\
+Non-consensus                     & 20 & 2 & $+0.056$ & $-8.76$ \\
+\bottomrule
+\end{tabular}
+\label{tab:consensus-oos}
+\end{table}
+
+Cross-algorithm consensus reliably identifies \textit{structurally related} pairs but does not predict \textit{out-of-sample profitability}. Consensus pairs actually underperformed non-consensus pairs on average in the OOS window. This is an important negative result: agreement among algorithms validates the relationship but does not substitute for proper out-of-sample testing of the trading strategy.
+
+% ============================================================================
+% 7. DISCOVERED SUBSECTOR STRUCTURE
+% ============================================================================
+\section{Discovered Subsector Structure}
+
+A notable byproduct of this analysis is that the clustering algorithms---which receive only price-derived features, no fundamental data---independently discover the semiconductor industry's subsector structure:
+
+\begin{itemize}
+    \item \textbf{Equipment cluster:} AMAT, LRCX, KLAC --- shared customers (TSMC, Samsung, Intel fabs), driven by semiconductor capex cycles
+    \item \textbf{RF cluster:} QRVO, SWKS, QCOM --- tied to smartphone and 5G demand
+    \item \textbf{Analog cluster:} ADI, NXPI, TXN, MCHP --- shared industrial and automotive end markets
+    \item \textbf{EDA cluster:} CDNS, SNPS --- the chip design software duopoly
+\end{itemize}
+
+This convergence between data-driven clustering and known industry structure provides additional confidence that the discovered pairs reflect genuine economic relationships.
+
+% ============================================================================
+% 8. DISCUSSION
+% ============================================================================
 \section{Discussion}
 
-% TODO: Write discussion (~1-1.5 pages)
+% TODO: Expand with your own interpretation and takeaways.
 
-\subsection{Interpretation of Results}
-% - Which clustering method best captures transient correlations and why
-% - Why OPTICS may outperform (variable density, no k specification)
-% - Why K-Means may struggle (spherical assumption, forced assignment)
-% - Where DBScan fits (fixed density threshold trade-off)
+\subsection{Strengths}
 
-\subsection{Practical Implications}
-% - How a trader could use this framework
-% - Signal generation: formation detection -> spread monitoring -> entry/exit
-% - Risk considerations: bounce rate as confidence measure
+\begin{enumerate}
+    \item \textbf{Methodological rigour:} Proper calibration/OOS split, bidirectional cointegration testing, feature-shuffle permutation tests, and noise-adjusted frequencies eliminate common sources of bias.
+    \item \textbf{Multi-algorithm validation:} Testing three fundamentally different algorithms on the same data provides cross-validation. The convergence on the same top pairs is compelling evidence that these relationships are real.
+    \item \textbf{Intellectually honest:} We report that only $\sim$54\% of tradeable pairs are profitable OOS. The look-ahead bias lesson is documented explicitly.
+    \item \textbf{Industry structure discovery:} The algorithms uncover known subsector groupings from raw price data alone, validating the feature engineering approach.
+\end{enumerate}
 
 \subsection{Limitations}
-% - Transaction costs not modelled
-% - Semiconductor sector only (generalisability unknown)
-% - Formation prediction AUC modest (~0.60-0.75)
-% - Feature engineering choices may introduce bias
-% - Daily frequency limits applicability to intraday trading
 
-% ============================================================
-% 8. CONCLUSION AND FUTURE WORK
-% ============================================================
-\section{Conclusion and Future Work}
+\begin{enumerate}
+    \item \textbf{Low trade counts:} 2--5 OOS trades per pair over $\sim$3.5 months is insufficient for statistical confidence in individual pair results.
+    \item \textbf{Single strategy tested:} Only a simple z-score mean-reversion strategy with fixed parameters was backtested. Adaptive hedge ratios (e.g., Kalman filter), alternative entry/exit rules, or regime-aware position sizing could improve results.
+    \item \textbf{Fixed hedge ratios:} OLS hedge ratios estimated on the calibration window are static. Several pairs that lost money OOS may have suffered from hedge ratio drift.
+    \item \textbf{Sector concentration:} All 40 stocks are semiconductors. The approach should be tested on a broader or different universe.
+    \item \textbf{Transaction costs:} Backtests assume zero trading costs.
+\end{enumerate}
 
-% TODO: Write conclusion (~0.5-1 page)
+% ============================================================================
+% 9. FUTURE WORK
+% ============================================================================
+\section{Future Work}
 
-\subsection{Summary}
-% - Recap: what we did, what we found, which method works best
+% TODO: Prioritize which of these you want to highlight.
 
-\subsection{Future Work}
-% - Real-time deployment and live testing
-% - Multi-timeframe analysis (hourly + daily)
-% - Sector expansion beyond semiconductors
-% - Additional features: volume, options implied volatility, order flow
-% - Trading module: full backtest with transaction costs and slippage
-% - Ensemble approach: combine predictions from all three clustering methods
+\begin{enumerate}
+    \item \textbf{Walk-forward validation:} Replace the single 67/33 split with rolling walk-forward windows for more robust performance estimates.
+    \item \textbf{Adaptive hedge ratios:} Use Kalman filter-estimated hedge ratios that evolve with the data, rather than fixed OLS estimates.
+    \item \textbf{Real-time pipeline:} The codebase includes prototype functions for real-time formation detection and signal generation. Wiring these into a live pipeline would enable the original transient trading thesis.
+    \item \textbf{Expanded universe:} Apply the framework to other sectors or cross-sector to test generalizability.
+    \item \textbf{Transaction cost modelling:} Incorporate realistic spread, slippage, and commission assumptions.
+\end{enumerate}
 
-% ============================================================
-% REFERENCES
-% ============================================================
-\newpage
-\bibliographystyle{plainnat}
-% \bibliography{references}  % Uncomment when references.bib is created
+% ============================================================================
+% 10. CONCLUSION
+% ============================================================================
+\section{Conclusion}
 
-% Placeholder references — replace with .bib file
-\begin{thebibliography}{99}
+% TODO: Write your own conclusion. Below is a starting point.
 
-\bibitem{gatev2006}
-Gatev, E., Goetzmann, W.N. and Rouwenhorst, K.G., 2006.
-Pairs trading: Performance of a relative-value arbitrage rule.
-\textit{The Review of Financial Studies}, 19(3), pp.797--827.
+We demonstrate that unsupervised clustering on hourly price-derived features can serve as an effective pair discovery mechanism for semiconductor equities. Three algorithms---OPTICS, DBSCAN, and KMeans---independently converge on the same set of structurally related pairs, which are validated through classical pairs trading criteria and out-of-sample backtesting.
 
-\bibitem{vidyamurthy2004}
-Vidyamurthy, G., 2004.
-\textit{Pairs Trading: Quantitative Methods and Analysis}.
-John Wiley \& Sons.
+The framework reliably identifies genuine relationships (26/33 pairs pass at least two of three classical criteria), and approximately half of tradeable pairs produce positive out-of-sample returns under a simple z-score strategy. The top performers (NXPI--ON, CDNS--SNPS, QCOM--QRVO) show Sharpe ratios of 1.4--3.6 on unseen data.
 
-\bibitem{ankerst1999}
-Ankerst, M., Breunig, M.M., Kriegel, H.P. and Sander, J., 1999.
-OPTICS: Ordering points to identify the clustering structure.
-\textit{ACM SIGMOD Record}, 28(2), pp.49--60.
+Equally important are the negative findings: cross-algorithm consensus does not predict out-of-sample profitability, and the gap between in-sample and out-of-sample results highlights the essential role of proper validation methodology.
 
-\bibitem{ester1996}
-Ester, M., Kriegel, H.P., Sander, J. and Xu, X., 1996.
-A density-based algorithm for discovering clusters in large spatial databases with noise.
-\textit{Proceedings of the 2nd International Conference on Knowledge Discovery and Data Mining (KDD-96)}, pp.226--231.
-
-\bibitem{macqueen1967}
-MacQueen, J., 1967.
-Some methods for classification and analysis of multivariate observations.
-\textit{Proceedings of the 5th Berkeley Symposium on Mathematical Statistics and Probability}, 1, pp.281--297.
-
-% TODO: Add more references as needed
-
-\end{thebibliography}
-
-% ============================================================
-% APPENDIX
-% ============================================================
-\newpage
-\appendix
-
-\section{Full Feature List}
-% TODO: Table listing every feature, its formula, and its category
-
-\section{Additional Plots}
-% TODO: Any supplementary figures not in the main body
-
-\section{Code Repository}
-% TODO: Link to GitHub repo or brief description of code structure
+% ============================================================================
+% APPENDIX (optional)
+% ============================================================================
+% \newpage
+% \appendix
+% \section{Full Ticker List}
+% TODO: Add if needed.
+%
+% \section{Permutation Test Details}
+% TODO: Add if needed.
+%
+% \section{Complete OOS Results Table}
+% TODO: Add all 26 tradeable pairs if space allows.
 
 \end{document}

@@ -260,6 +260,95 @@ def test_pair_fundamentals(ticker_a, ticker_b, ts_df, cal_frac=0.67):
 
 
 # ---------------------------------------------------------------------------
+# Walk-forward validation
+# ---------------------------------------------------------------------------
+
+def walk_forward_backtest(daily_a, daily_b, n_splits=5, cal_frac=0.67,
+                          lookback=20, entry_z=2.0, exit_z=0.5):
+    """
+    Rolling walk-forward backtest with multiple cal/OOS splits.
+
+    Instead of a single 67/33 split, slides a window through the data
+    to produce n_splits independent OOS evaluations.
+
+    Parameters
+    ----------
+    daily_a, daily_b : Series
+        Aligned daily price series for the two tickers.
+    n_splits : int
+        Number of rolling splits.
+    cal_frac : float
+        Fraction of each window used for calibration.
+    lookback, entry_z, exit_z : float
+        Backtest parameters.
+
+    Returns
+    -------
+    dict with per-split results and aggregate metrics.
+    """
+    common = daily_a.index.intersection(daily_b.index)
+    if len(common) < 80:
+        return None
+
+    da = daily_a.loc[common]
+    db = daily_b.loc[common]
+    n = len(da)
+
+    # Each split uses a window of size n // (1 + n_splits * (1 - cal_frac))
+    # sliding forward by step_size
+    window_size = int(n * 0.8)
+    step_size = max(1, (n - window_size) // max(1, n_splits - 1))
+
+    split_results = []
+    for i in range(n_splits):
+        start = i * step_size
+        end = start + window_size
+        if end > n:
+            break
+
+        da_win = da.iloc[start:end]
+        db_win = db.iloc[start:end]
+        split_idx = int(len(da_win) * cal_frac)
+
+        if split_idx < 30 or (len(da_win) - split_idx) < 15:
+            continue
+
+        da_cal = da_win.iloc[:split_idx]
+        db_cal = db_win.iloc[:split_idx]
+        da_oos = da_win.iloc[split_idx:]
+        db_oos = db_win.iloc[split_idx:]
+
+        beta, _, _ = compute_hedge_ratio(da_cal, db_cal, method='ols')
+        if np.isnan(beta):
+            continue
+
+        spread_oos = da_oos - beta * db_oos
+        bt = backtest_pair(spread_oos, lookback=lookback, entry_z=entry_z, exit_z=exit_z)
+        bt['split'] = i
+        bt['cal_start'] = da_cal.index[0]
+        bt['oos_start'] = da_oos.index[0]
+        bt['oos_end'] = da_oos.index[-1]
+        bt['beta'] = beta
+        split_results.append(bt)
+
+    if not split_results:
+        return None
+
+    sharpes = [r['sharpe'] for r in split_results if np.isfinite(r['sharpe'])]
+    pnls = [r['total_pnl'] for r in split_results]
+    trades = [r['n_trades'] for r in split_results]
+
+    return {
+        'n_splits': len(split_results),
+        'avg_sharpe': float(np.mean(sharpes)) if sharpes else np.nan,
+        'std_sharpe': float(np.std(sharpes)) if sharpes else np.nan,
+        'avg_pnl': float(np.mean(pnls)),
+        'total_trades': int(sum(trades)),
+        'splits': split_results,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Backtest
 # ---------------------------------------------------------------------------
 

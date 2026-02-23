@@ -9,3 +9,5 @@ plotly
 statsmodels
 pandas-ta-classic
 pykalman
+scipy
+pytest
