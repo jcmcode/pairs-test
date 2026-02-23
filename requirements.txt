@@ -11,3 +11,4 @@ pandas-ta-classic
 pykalman
 scipy
 pytest
+yfscreen
