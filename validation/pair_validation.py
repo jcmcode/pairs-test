@@ -22,7 +22,9 @@ def cluster_persistence(clusters_wide: pd.DataFrame, a: str, b: str, t: pd.Times
     w = clusters_wide.iloc[start:loc+1][[a, b]].dropna()
     if len(w) == 0:
         return np.nan
-    return float((w[a].values == w[b].values).mean())
+    same_cluster = w[a].values == w[b].values
+    not_noise = (w[a].values != -1) & (w[b].values != -1)
+    return float((same_cluster & not_noise).mean())
 
 # -------------------------
 # Spread + tests
@@ -241,7 +243,7 @@ def spread_cv_normalized(spread, prices_a, prices_b):
     avg_price = (np.nanmean(prices_a) + np.nanmean(prices_b)) / 2.0
     if avg_price == 0:
         return np.nan
-    return float(np.nanstd(s) / avg_price)
+    return float(np.nanstd(s, ddof=1) / avg_price)
 
 
 def half_life(spread):
@@ -285,7 +287,7 @@ def zscore_signals(spread, lookback, entry_z=2.0, exit_z=0.5):
     s = pd.Series(spread)
     mu = s.rolling(lookback).mean()
     sd = s.rolling(lookback).std(ddof=1)
-    z = (s - mu) / sd
+    z = pd.Series(np.where(sd > 0, (s - mu) / sd, np.nan), index=s.index)
 
     df = pd.DataFrame({'z_score': z}, index=s.index)
     df['long_entry'] = z <= -entry_z
@@ -340,6 +342,15 @@ def simulate_spread_pnl(spread, signals_df, cost_per_trade=0.0):
             entry_price = 0.0
 
         pnl_curve.append(cumulative)
+
+    # Close any remaining open position at end
+    if position != 0:
+        final_price = s.iloc[-1]
+        if not np.isnan(final_price):
+            pnl = position * (final_price - entry_price) - cost_per_trade
+            trades.append(pnl)
+            cumulative += pnl
+            pnl_curve[-1] = cumulative
 
     pnl_series = pd.Series(pnl_curve, index=signals_df.index)
     n_trades = len(trades)
@@ -416,14 +427,36 @@ def feature_shuffle_permutation_test(
         - null_counts: dict mapping pair -> list of permuted counts
     """
     all_timestamps = ts_df.index.get_level_values('Datetime').unique()
+    rng = np.random.default_rng(42)
     if len(all_timestamps) > n_sample_timestamps:
-        rng = np.random.default_rng(42)
         sample_ts = rng.choice(all_timestamps, size=n_sample_timestamps, replace=False)
     else:
         sample_ts = all_timestamps
 
-    # Observed co-cluster frequency scaled to sampled timestamps
-    scale = len(sample_ts) / total_valid_windows
+    # Compute observed co-clustering on the SAME sampled timestamps
+    obs_counts_sampled = {}
+    for ts in sample_ts:
+        try:
+            snapshot = ts_df.xs(ts, level='Datetime')[features_to_cluster].dropna()
+        except KeyError:
+            continue
+        if len(snapshot) < 5:
+            continue
+        tickers = snapshot.index.tolist()
+        values_obs = snapshot.values.copy()
+        scaler_obs = StandardScaler()
+        X_scaled_obs = scaler_obs.fit_transform(values_obs)
+        pca_obs = PCA(n_components=0.90)
+        X_pca_obs = pca_obs.fit_transform(X_scaled_obs)
+        optics_obs = OPTICS(**optics_params)
+        optics_obs.fit(X_pca_obs)
+        for cid in set(optics_obs.labels_):
+            if cid == -1:
+                continue
+            members = sorted([tickers[j] for j in range(len(tickers)) if optics_obs.labels_[j] == cid])
+            for s1, s2 in itertools.combinations(members, 2):
+                key = (s1, s2)
+                obs_counts_sampled[key] = obs_counts_sampled.get(key, 0) + 1
 
     null_counts = {}
 
@@ -440,7 +473,7 @@ def feature_shuffle_permutation_test(
             tickers = snapshot.index.tolist()
             values = snapshot.values.copy()
             # Shuffle rows (feature vectors across tickers)
-            np.random.shuffle(values)
+            rng.shuffle(values)
 
             scaler = StandardScaler()
             X_scaled = scaler.fit_transform(values)
@@ -466,17 +499,18 @@ def feature_shuffle_permutation_test(
         while len(null_counts[key]) < n_permutations:
             null_counts[key].append(0)
 
-    # Compute Z-scores for each observed pair
+    # Compute Z-scores using observed counts on same sampled timestamps
     pair_zscores = {}
-    for pair, obs_count in pair_co_cluster_freq.items():
-        obs_scaled = obs_count * scale
+    all_pairs = set(obs_counts_sampled.keys()) | set(pair_co_cluster_freq.keys())
+    for pair in all_pairs:
+        obs_val = obs_counts_sampled.get(pair, 0)
         null_vals = np.array(null_counts.get(pair, [0] * n_permutations), dtype=float)
         null_mean = null_vals.mean()
         null_std = null_vals.std()
         if null_std > 0:
-            z = (obs_scaled - null_mean) / null_std
+            z = (obs_val - null_mean) / null_std
         else:
-            z = 0.0 if obs_scaled <= null_mean else np.inf
+            z = 0.0 if obs_val <= null_mean else np.inf
         pair_zscores[pair] = float(z)
 
     n_significant = sum(1 for z in pair_zscores.values() if z > 1.96)

@@ -1,12 +1,12 @@
 # Findings: Transient Clustering as a Pair Discovery Tool
 
+> **Methodology note:** All backtest results use out-of-sample data (last 33% of daily observations). Hedge ratios and statistical metrics are estimated on the calibration window (first 67%) only. Cointegration is tested in both directions (min p-value). This eliminates look-ahead bias present in earlier versions of this analysis.
+
 ## The Key Result
 
-The OPTICS transient detection engine was built to find short-lived relationships between semiconductor stocks as they form in real time. An unexpected side effect: **the pairs it keeps surfacing turn out to have genuine longer-term structural relationships that are tradeable using classical mean-reversion strategies.**
+The OPTICS transient detection engine was built to find short-lived relationships between semiconductor stocks as they form in real time. The pairs it keeps surfacing turn out to have genuine longer-term structural relationships — **26 of 33 filtered pairs pass at least 2 of 3 classical pairs trading criteria** (half-life, Hurst exponent, cointegration) on the calibration window.
 
-23 out of 33 filtered pairs passed 2 of 3 classical pairs trading criteria (half-life, Hurst exponent, cointegration). Every single one produced positive P&L in a z-score mean-reversion backtest over ~11 months of daily data. The consensus pairs — those found by all three clustering algorithms — outperformed the rest.
-
-This means the transient engine doubles as a **pair discovery tool**: run it once, and the pairs it repeatedly clusters together are strong candidates for traditional pairs trading, not just transient strategies.
+However, out-of-sample backtesting paints a more nuanced picture: roughly half of tradeable pairs are profitable OOS, while others show losses. The engine is effective as a **pair discovery tool** — it reliably identifies structurally related pairs with mean-reverting spreads — but not every discovered pair translates to profitable trading without further filtering.
 
 ---
 
@@ -64,97 +64,100 @@ The permutation test (feature-shuffling, 30 iterations) confirms 11 pairs are st
 
 ### The Test
 
-We took every pair that the OPTICS engine found with a noise-adjusted frequency above 15% (appeared together at least 15% of the time when both visible) and tested them with classical pairs trading metrics on daily data over the full ~11-month period:
+We took every pair that the OPTICS engine found with a noise-adjusted frequency above 15% (appeared together at least 15% of the time when both visible) and tested them with classical pairs trading metrics. The daily data is split 67/33 into calibration and out-of-sample windows:
 
-1. **Engle-Granger cointegration** (p < 0.05) — are the two price series statistically tied together?
+1. **Engle-Granger cointegration** (p < 0.05, tested both directions) — are the two price series statistically tied together?
 2. **Half-life of mean reversion** (5-60 days) — does the spread revert at a practical speed?
 3. **Hurst exponent** (< 0.5) — is the spread genuinely mean-reverting vs trending?
 
-A pair "passes" if it meets all three. A "near-miss" meets two of three.
+All metrics are computed on the calibration window only. Backtests run on the OOS window. A pair "passes" if it meets all three. A "near-miss" meets two of three.
 
 ### Results
 
 | Category | Count | Description |
 |----------|-------|-------------|
 | Tested | 33 | Pairs with noise-adjusted freq > 0.15 |
-| Passed (3/3) | 0 | No pair met all three classical criteria |
-| Near-miss (2/3) | 23 | Met half-life + Hurst, typically failing cointegration |
-| Failed | 10 | Met 0 or 1 criteria |
+| Passed (3/3) | 4 | Met cointegration + half-life + Hurst on calibration window |
+| Near-miss (2/3) | 22 | Typically met half-life + Hurst, failing cointegration |
+| Failed | 7 | Met 0 or 1 criteria |
 
-**Zero pairs formally cointegrate.** This is consistent with the transient thesis — these relationships form and dissolve, so a test that assumes permanent equilibrium (cointegration) shouldn't pass. But 23 of 33 pairs pass both Hurst and half-life criteria, meaning their spreads genuinely mean-revert on a practical timescale.
+With bidirectional cointegration testing (min p-value of both orderings), 4 pairs now formally pass all three criteria — ADI-NXPI, ADI-QRVO, ADI-SWKS, and QCOM-QRVO. The remaining 22 near-misses typically pass Hurst and half-life but fail cointegration, consistent with the transient thesis: these relationships form and dissolve, so a test assuming permanent equilibrium often fails.
 
-The failure mode is almost always cointegration. The typical near-miss pair has:
+The typical near-miss pair has:
 - Hurst < 0.5 (confirmed mean-reverting)
 - Half-life between 5-60 days (practical trading speed)
-- Cointegration p-value between 0.10 and 0.90 (not formally cointegrated)
+- Cointegration p-value between 0.10 and 0.90 (not formally cointegrated on the calibration window)
 
-This pattern makes sense: these pairs have a real structural relationship (same subsector, same demand drivers), so their spread mean-reverts. But the relationship isn't permanent or deterministic, so it doesn't reach formal cointegration.
+### Out-of-Sample Backtest Performance
 
-### Backtest Performance
+All passed and near-miss pairs were backtested with a standard z-score mean-reversion strategy (20-day lookback, enter at z = 2.0, exit at z = 0.5) on the **OOS window only** (~33% of daily data, approximately the last 3.5 months):
 
-Every near-miss pair was backtested with a standard z-score mean-reversion strategy (20-day lookback, enter at z = 2.0, exit at z = 0.5) on daily data:
-
-**Top 10 by Sharpe Ratio:**
+**Top 10 by Sharpe Ratio (OOS):**
 
 | Pair | Noise-Adj Freq | Coint p-val | Half-Life (days) | Hurst | Trades | Total P&L | Sharpe | Win Rate | Consensus |
 |------|---------------|-------------|-----------------|-------|--------|-----------|--------|----------|-----------|
-| NXPI-TXN | 0.223 | 0.273 | 12.4 | 0.328 | 7 | 62.79 | 2.93 | 100% | Yes |
-| QCOM-SWKS | 0.220 | 0.524 | 18.2 | 0.338 | 7 | 44.28 | 1.84 | 100% | No |
-| KLAC-TSM | 0.192 | 0.071 | 9.4 | 0.218 | 8 | 258.67 | 1.77 | 100% | No |
-| QCOM-TXN | 0.156 | 0.579 | 14.5 | 0.372 | 9 | 71.80 | 1.73 | 89% | No |
-| QCOM-QRVO | 0.228 | 0.423 | 13.2 | 0.331 | 7 | 40.23 | 1.38 | 86% | Yes |
-| NXPI-ON | 0.173 | 0.107 | 8.5 | 0.403 | 8 | 54.26 | 1.29 | 88% | No |
-| ADI-NXPI | 0.279 | 0.915 | 43.8 | 0.324 | 8 | 74.81 | 1.08 | 88% | Yes |
-| MCHP-NXPI | 0.230 | 0.105 | 7.8 | 0.320 | 12 | 33.15 | 1.04 | 92% | No |
-| NXPI-POWI | 0.186 | 0.412 | 12.6 | 0.393 | 11 | 96.85 | 1.00 | 82% | No |
-| NXPI-STM | 0.209 | 0.175 | 10.2 | 0.319 | 9 | 38.13 | 0.98 | 78% | No |
+| NXPI-ON | 0.173 | 0.271 | 8.6 | 0.413 | 2 | 6.56 | 3.55 | 100% | No |
+| CDNS-SNPS | 0.199 | 0.620 | 21.5 | 0.447 | 3 | 36.26 | 2.08 | 100% | No |
+| QCOM-QRVO | 0.228 | 0.019 | 5.3 | 0.205 | 2 | 47.46 | 1.44 | 100% | No |
+| KLAC-TSM | 0.192 | 0.006 | 3.6 | 0.181 | 2 | 47.55 | 1.35 | 100% | No |
+| LRCX-NVMI | 0.152 | 0.422 | 13.2 | 0.440 | 2 | 16.19 | 1.04 | 100% | No |
+| NXPI-POWI | 0.186 | 0.568 | 13.5 | 0.372 | 5 | 37.32 | 0.85 | 80% | No |
+| MCHP-ON | 0.200 | 0.039 | 5.2 | 0.313 | 3 | 3.62 | 0.65 | 67% | No |
+| ADI-TXN | 0.278 | 0.875 | 52.4 | 0.422 | 3 | 10.32 | 0.33 | 33% | Yes |
+| MCHP-NXPI | 0.230 | 0.237 | 8.6 | 0.332 | 2 | 2.00 | 0.33 | 50% | No |
+| QRVO-SWKS | 0.372 | 0.232 | 9.2 | 0.409 | 2 | 0.62 | 0.28 | 50% | Yes |
 
 Key observations:
-- **Every pair is profitable.** 23 of 23 near-miss pairs produced positive total P&L.
-- **Win rates are extremely high.** Most pairs have 80%+ win rates, several at 100%.
-- **Trade counts are modest.** 6-12 trades over 11 months is consistent with a patient mean-reversion strategy on daily data.
-- **NXPI appears in 6 of the top 10.** It's the most connected node in the analog semiconductor cluster, structurally linked to ADI, TXN, MCHP, STM, ON, and POWI.
+- **Roughly half of tradeable pairs are profitable OOS.** 14 of 26 tradeable pairs produced positive P&L on out-of-sample data, a significant reduction from the earlier in-sample results.
+- **Trade counts are low.** The OOS window is shorter (~3.5 months), yielding 2-5 trades per pair — enough for directional signal but not statistically robust.
+- **Top performers remain strong.** NXPI-ON (Sharpe 3.55), CDNS-SNPS (2.08), QCOM-QRVO (1.44) show genuine OOS profitability.
+- **Some pairs that looked great in-sample now show losses.** ADI-NXPI (Sharpe -1.76), ADI-QRVO (-3.04), AVGO-TSM (-0.76) — the hedge ratios fitted on calibration data didn't hold in the OOS window.
+- **The honest picture**: the engine finds structurally related pairs, but only a subset produce profitable OOS trading results with a simple z-score strategy.
 
-### Consensus Pairs Outperform
+### Consensus vs Non-Consensus (OOS)
 
-| Group | Pairs | Avg Sharpe | Avg P&L |
-|-------|-------|-----------|---------|
-| Consensus (in all 3 algorithms' top-20) | 5 tradeable | 0.954 | 55.41 |
-| Non-consensus | 18 tradeable | 0.812 | 47.33 |
+| Group | Tradeable Pairs | Passed | Near-miss | Avg Sharpe (OOS) | Avg P&L (OOS) |
+|-------|----------------|--------|-----------|-----------------|---------------|
+| Consensus (in all 3 algorithms' top-20) | 6 | 2 | 4 | -0.251 | -13.73 |
+| Non-consensus | 20 | 2 | 18 | 0.056 | -8.76 |
 
-Cross-algorithm agreement is a genuine quality signal. Pairs that all three algorithms independently surface tend to have better backtest performance.
+In the OOS window, consensus pairs actually underperform non-consensus pairs on average. This reversal from the earlier in-sample results illustrates the danger of look-ahead bias: the consensus signal appeared strongest precisely because those pairs had the most in-sample overfitting. With honest OOS evaluation, cross-algorithm agreement does not reliably predict better backtest performance — though it does reliably identify structurally related pairs.
 
 ### Failed Pairs
 
-The 10 pairs that failed (0 or 1 criteria met) tend to have one of two problems:
-- **Trending Hurst** (> 0.5): AMAT-LRCX (Hurst 0.527), ADI-QCOM (Hurst 0.597) — the spread trends rather than reverting
-- **Infinite half-life**: ADI-QRVO, ADI-MCHP — the spread shows no reversion tendency at all
+The 7 pairs that failed (0 or 1 criteria met on calibration data) tend to have:
+- **Trending Hurst** (> 0.5): AMAT-LRCX (0.571), AMAT-KLAC (0.626), AMAT-ASML (0.590) — equipment pairs where the spread trends rather than reverting
+- **Long half-life**: STX-WDC (96.6 days) — technically mean-reverting but too slow to trade
 
-These pairs still cluster together on hourly data (driven by shared volatility/momentum regimes), but the relationship doesn't produce a mean-reverting spread at daily frequency. Clustering detects behavioral similarity, not cointegration — some behaviorally similar pairs simply don't have the right price dynamics for spread trading.
+These pairs still cluster together on hourly data (driven by shared volatility/momentum regimes), but the relationship doesn't produce a mean-reverting spread at daily frequency on the calibration window.
 
 ---
 
 ## What This Means
 
-### The Transient Engine Works as a Pair Discovery Tool
+### The Transient Engine Works as a Pair Discovery Tool — With Caveats
 
-The original goal was real-time detection of short-lived relationships. But the pairs the engine keeps finding — the ones that form, dissolve, and re-form repeatedly — are revealing genuine structural connections in the market:
+The original goal was real-time detection of short-lived relationships. The pairs the engine keeps finding reveal genuine structural connections in the market:
 
 - **Equipment cluster**: AMAT, LRCX, KLAC share the same customers (TSMC, Samsung, Intel fabs) and respond to the same semiconductor capex cycle
 - **RF cluster**: QRVO, SWKS, QCOM are tied to smartphone/5G demand
 - **Analog cluster**: ADI, NXPI, TXN, MCHP share industrial/automotive end markets
 - **EDA cluster**: CDNS, SNPS are a duopoly in chip design software
 
-These subsector groupings aren't input to the algorithm — it discovers them from raw price-derived features. And the pairs within these groups produce mean-reverting spreads that are profitable to trade with a simple z-score strategy.
+These subsector groupings aren't input to the algorithm — it discovers them from raw price-derived features. The pairs within these groups produce mean-reverting spreads on the calibration window, and about half remain profitable on out-of-sample data.
 
-### Near-Miss is the Right Category
+### The Look-Ahead Bias Lesson
 
-The fact that 0 pairs formally cointegrate but 23 show mean-reverting behavior (Hurst < 0.5, practical half-life) is exactly what you'd expect from transient-dynamic relationships. These pairs:
-- Have real structural connections (shared demand drivers, shared customers)
-- Mean-revert because when one stock moves away from the group, fundamental forces pull it back
-- Don't formally cointegrate because the relationship strength varies over time (which is what makes them transient)
+Earlier versions of this analysis computed hedge ratios on the full data period and backtested on the same data, producing uniformly positive results (23/23 pairs profitable, 80-100% win rates). After implementing a proper calibration/OOS split:
+- **14 of 26 tradeable pairs remain profitable** (down from 23/23)
+- **Average Sharpe dropped significantly** — some pairs that appeared excellent in-sample (ADI-NXPI Sharpe 1.08) show losses OOS (Sharpe -1.76)
+- **The top performers are genuine**: NXPI-ON, CDNS-SNPS, QCOM-QRVO, KLAC-TSM show strong OOS Sharpe ratios (1.3-3.6)
 
-Formal cointegration is a strict requirement that assumes a permanent, stable equilibrium. These semiconductor pairs have a *tendency* toward equilibrium that's strong enough to trade but not strong enough to pass a cointegration test. The near-miss category captures this perfectly.
+This demonstrates why out-of-sample validation is essential. The engine reliably discovers structurally related pairs, but a simple z-score strategy with a fixed hedge ratio doesn't always survive the OOS test.
+
+### Near-Miss Remains the Right Category
+
+With bidirectional cointegration testing, 4 pairs now formally pass all criteria. But the majority (22/26) are near-misses — mean-reverting behavior without formal cointegration. This is consistent with transient dynamics: the relationship is real but time-varying, strong enough to detect via clustering but not permanent enough for the Engle-Granger test.
 
 ---
 
@@ -205,9 +208,11 @@ research/
 | Permutation-significant pairs | 11 (Z > 1.96) |
 | Cross-algorithm consensus pairs | 8 (in all 3 top-20) |
 | Pairs tested for classical trading | 33 (noise-adj freq > 0.15) |
-| Near-miss pairs (2/3 criteria) | 23 |
-| All 23 near-miss pairs profitable | Yes |
-| OOS co-clustering stability | r = 0.671 (OPTICS), r = 0.832 (DBSCAN) |
+| Passed (3/3 criteria on cal window) | 4 |
+| Near-miss pairs (2/3 criteria) | 22 |
+| Tradeable pairs profitable OOS | 14 of 26 (54%) |
+| Top OOS Sharpe | NXPI-ON: 3.55, CDNS-SNPS: 2.08 |
+| Methodology | 67% cal / 33% OOS split, bidirectional cointegration |
 
 ---
 

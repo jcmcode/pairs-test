@@ -187,10 +187,11 @@ def hurst_exponent(spread, max_lag=20):
 # Classical pairs trading tests
 # ---------------------------------------------------------------------------
 
-def test_pair_fundamentals(ticker_a, ticker_b, ts_df):
+def test_pair_fundamentals(ticker_a, ticker_b, ts_df, cal_frac=0.67):
     """
-    Test a pair with classical pairs trading metrics over full daily history.
-    Returns dict with all metrics, or None if insufficient data.
+    Test a pair with classical pairs trading metrics.
+    Calibration/OOS split: hedge ratio and metrics computed on first cal_frac,
+    backtest runs on the remaining OOS portion.
     """
     daily_a = get_daily_prices(ticker_a, ts_df)
     daily_b = get_daily_prices(ticker_b, ts_df)
@@ -202,20 +203,35 @@ def test_pair_fundamentals(ticker_a, ticker_b, ts_df):
     da = daily_a.loc[common]
     db = daily_b.loc[common]
 
-    beta, intercept, r_sq = compute_hedge_ratio(da, db, method='ols')
+    # Cal/OOS split
+    split_idx = int(len(common) * cal_frac)
+    if split_idx < 40 or (len(common) - split_idx) < 20:
+        return None
+
+    da_cal, da_oos = da.iloc[:split_idx], da.iloc[split_idx:]
+    db_cal, db_oos = db.iloc[:split_idx], db.iloc[split_idx:]
+
+    # Hedge ratio on calibration ONLY
+    beta, intercept, r_sq = compute_hedge_ratio(da_cal, db_cal, method='ols')
     if np.isnan(beta):
         return None
 
-    spread = da - beta * db
+    spread_cal = da_cal - beta * db_cal
 
+    # Cointegration: test both directions, take minimum p-value (Issue 7)
     try:
-        _, coint_pval, _ = coint(da, db)
+        _, pval_ab, _ = coint(da_cal, db_cal)
+        _, pval_ba, _ = coint(db_cal, da_cal)
+        coint_pval = min(pval_ab, pval_ba)
     except Exception:
         coint_pval = 1.0
 
-    hl = half_life(spread)
-    hurst = hurst_exponent(spread.values)
-    cv = spread_cv_normalized(spread, da, db)
+    hl = half_life(spread_cal)
+    hurst = hurst_exponent(spread_cal.values)
+    cv = spread_cv_normalized(spread_cal, da_cal, db_cal)
+
+    # OOS spread for backtesting
+    spread_oos = da_oos - beta * db_oos
 
     crit_coint = coint_pval < 0.05
     crit_hl = (not np.isnan(hl)) and hl != np.inf and 5 <= hl <= 60
@@ -224,6 +240,8 @@ def test_pair_fundamentals(ticker_a, ticker_b, ts_df):
 
     return {
         'n_daily_obs': len(common),
+        'n_cal_obs': split_idx,
+        'n_oos_obs': len(common) - split_idx,
         'beta': beta,
         'r_squared': r_sq,
         'coint_pval': coint_pval,
@@ -236,7 +254,8 @@ def test_pair_fundamentals(ticker_a, ticker_b, ts_df):
         'n_criteria_met': n_met,
         'passed': n_met == 3,
         'near_miss': n_met == 2,
-        'spread': spread,
+        'spread_cal': spread_cal,
+        'spread_oos': spread_oos,
     }
 
 
@@ -312,7 +331,7 @@ def run_full_analysis(pair_registry, ts_df):
             })
 
             if fundamentals['passed'] or fundamentals['near_miss']:
-                bt = backtest_pair(fundamentals['spread'])
+                bt = backtest_pair(fundamentals['spread_oos'])
                 entry.update(bt)
             else:
                 entry.update({
@@ -334,6 +353,7 @@ def generate_report(results):
     lines = []
     lines.append('=' * 80)
     lines.append('TRANSIENT ENGINE -> TRADITIONAL PAIRS TRADE VALIDATION')
+    lines.append('(All metrics computed on calibration window; backtests on out-of-sample data)')
     lines.append('=' * 80)
 
     # Section 1: Summary
