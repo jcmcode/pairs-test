@@ -141,3 +141,18 @@ class TestNoiseAdjustedFrequency:
         freq = {('A', 'B'): 0}
         adj = compute_noise_adjusted_frequency(ch, freq)
         assert adj[('A', 'B')] == 0.0
+
+    def test_absent_ticker_not_counted_as_valid(self):
+        """Regression: timestamps where a ticker is absent (not present at all)
+        should not inflate the denominator.  Only timestamps where BOTH tickers
+        are present and non-noise count."""
+        ch = pd.DataFrame({
+            'Ticker': ['A', 'A', 'B'],
+            'Datetime': ['t1', 't2', 't1'],
+            'Cluster_ID': [0,   0,   0],
+        })
+        # A and B co-cluster at t1.  At t2 only A exists (B absent).
+        # Valid denominator for (A,B) should be 1 (only t1), so freq = 1/1 = 1.0
+        freq = {('A', 'B'): 1}
+        adj = compute_noise_adjusted_frequency(ch, freq)
+        assert adj[('A', 'B')] == 1.0  # was 0.5 before fix

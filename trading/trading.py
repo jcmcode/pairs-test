@@ -74,19 +74,22 @@ def compute_noise_adjusted_frequency(cluster_history, pair_co_cluster_freq):
 
     OPTICS raw frequency uses ALL timestamps as denominator, but ~58% of the
     time a ticker is in noise (cluster -1). Noise-adjusted denominator = only
-    timestamps where BOTH tickers are non-noise.
+    timestamps where BOTH tickers are present AND non-noise.
     """
+    # Per-ticker: timestamps where the ticker is present (any cluster ID)
+    present_ts = {}
     noise_ts = {}
     for ticker, group in cluster_history.groupby('Ticker'):
+        present_ts[ticker] = set(group['Datetime'].values)
         noise_ts[ticker] = set(
             group[group['Cluster_ID'] == -1]['Datetime'].values
         )
 
-    all_ts = set(cluster_history['Datetime'].unique())
-
     adjusted = {}
     for (a, b), raw_count in pair_co_cluster_freq.items():
-        valid_ts = all_ts - noise_ts.get(a, set()) - noise_ts.get(b, set())
+        # Timestamps where both tickers exist AND neither is noise
+        both_present = present_ts.get(a, set()) & present_ts.get(b, set())
+        valid_ts = both_present - noise_ts.get(a, set()) - noise_ts.get(b, set())
         if len(valid_ts) == 0:
             adjusted[(a, b)] = 0.0
         else:

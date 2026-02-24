@@ -139,14 +139,17 @@ class TransientPipeline:
         """
         return track_stable_pairs(pair_list, self.ts_df, cfg=self.cfg.backtest)
 
-    def update(self, new_prices_row=None):
+    def update(self, df_prices=None):
         """
-        Incremental update: cluster the latest timestamp and detect new formations.
+        Incremental update: incorporate new price data, cluster new timestamps,
+        and detect new formations.
 
         Parameters
         ----------
-        new_prices_row : Series, optional
-            Latest prices keyed by ticker. If None, uses last row of ts_df.
+        df_prices : DataFrame, optional
+            Updated price data (columns=tickers, datetime index).  Must include
+            historical data sufficient for rolling feature windows plus any new
+            observations.  If None, fetches fresh data via yfinance.
 
         Returns
         -------
@@ -155,7 +158,7 @@ class TransientPipeline:
         if self.cluster_history is None:
             return []
 
-        # Store current latest as previous
+        # Advance: save current latest snapshot as _previous_clusters
         latest_ts = self.cluster_history['Datetime'].max()
         latest_snap = self.cluster_history[
             self.cluster_history['Datetime'] == latest_ts
@@ -164,8 +167,49 @@ class TransientPipeline:
             zip(latest_snap['Ticker'], latest_snap['Cluster_ID'])
         )
 
-        # If new_prices_row provided, we'd need to recompute features
-        # for that timestamp. For now, use the latest available in ts_df.
+        # Fetch or use provided price data
+        if df_prices is None:
+            df_prices = fetch_data(tickers=self.tickers)
+
+        # Recompute features (rolling windows need full history)
+        self.ts_df = compute_features(df_prices, cfg=self.cfg.features)
+
+        # Cluster only timestamps not already in cluster_history
+        feat_cols = list(self.cfg.features.features_to_cluster)
+        existing_ts = set(self.cluster_history['Datetime'].unique())
+        all_ts = sorted(self.ts_df.index.get_level_values('Datetime').unique())
+        new_timestamps = [ts for ts in all_ts if ts not in existing_ts]
+
+        if not new_timestamps:
+            return []
+
+        new_rows = []
+        for ts in new_timestamps:
+            try:
+                snapshot = self.ts_df.xs(ts, level='Datetime')[feat_cols].dropna()
+            except KeyError:
+                continue
+
+            labels = run_clustering_snapshot(snapshot, self.cfg.clustering)
+            if labels is None:
+                continue
+
+            for ticker, label in zip(snapshot.index, labels):
+                new_rows.append({
+                    'Ticker': ticker,
+                    'Datetime': ts,
+                    'Cluster_ID': int(label),
+                })
+
+        if new_rows:
+            self.cluster_history = pd.concat(
+                [self.cluster_history, pd.DataFrame(new_rows)],
+                ignore_index=True,
+            )
+            self.pair_co_cluster_freq, _ = compute_co_cluster_freq(
+                self.cluster_history,
+            )
+
         return self.scan()
 
     @property

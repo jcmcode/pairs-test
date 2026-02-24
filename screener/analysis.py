@@ -135,9 +135,9 @@ def _test_rolling_correlation(prices_a, prices_b, n_windows=4, stability_thresho
     if len(a) < n_windows * 10 + 1:
         return False, np.nan, []
 
-    # Use returns to avoid spurious correlation from co-trending levels
-    ret_a = np.diff(a)
-    ret_b = np.diff(b)
+    # Use percentage returns to avoid spurious correlation from co-trending levels
+    ret_a = np.diff(a) / a[:-1]
+    ret_b = np.diff(b) / b[:-1]
 
     window_size = len(ret_a) // n_windows
     correlations = []

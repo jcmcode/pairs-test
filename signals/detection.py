@@ -134,8 +134,9 @@ def detect_new_formations(cluster_history_latest, previous_clusters):
             current_pairs.add((a, b))
 
     prev_pairs = set()
-    for cid in set(previous_clusters.values()):
-        members = sorted([t for t, c in previous_clusters.items() if c == cid])
+    prev_non_noise = {t: c for t, c in previous_clusters.items() if c != -1}
+    for cid in set(prev_non_noise.values()):
+        members = sorted([t for t, c in prev_non_noise.items() if c == cid])
         for a, b in itertools.combinations(members, 2):
             prev_pairs.add((a, b))
 

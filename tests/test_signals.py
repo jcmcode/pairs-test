@@ -108,6 +108,18 @@ class TestDetectNewFormations:
         assert ('A', 'B') not in pairs  # A is noise
         assert ('B', 'C') in pairs
 
+    def test_both_noise_to_same_cluster_is_new_formation(self):
+        """Regression: tickers both in noise (-1) previously should not
+        suppress detection when they co-cluster in the current snapshot."""
+        snapshot = pd.DataFrame({
+            'Ticker': ['A', 'B'],
+            'Cluster_ID': [0, 0],
+        })
+        prev = {'A': -1, 'B': -1}  # both were noise
+        new = detect_new_formations(snapshot, prev)
+        pairs = [tuple(sorted(p)) for p in new]
+        assert ('A', 'B') in pairs
+
 
 class TestRunClusteringSnapshot:
     def test_insufficient_data(self):
