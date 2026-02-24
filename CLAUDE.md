@@ -4,67 +4,71 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an event-driven correlation detection research project. The goal is to identify short-term relationship formations between assets using clustering algorithms, analyze historical data to understand what factors preceded those formations, and eventually predict when new relationships will form.
+This is a two-phase transient correlation detection research project. The goal is to identify short-term relationship formations between assets using clustering algorithms, validate those relationships with statistical tests, and backtest trading strategies on discovered pairs.
 
-Unlike traditional pairs trading (which seeks cointegrated pairs with mean reversion), this project looks for **transient correlations** that form on shorter time frames, often driven by news events or market conditions. When two assets cluster together, it signals a relationship has formed; the validation module then tests the strength and persistence of that relationship.
+Unlike traditional pairs trading (which seeks cointegrated pairs with mean reversion), this project looks for **transient correlations** that form on shorter time frames. When two assets cluster together, it signals a relationship has formed; the validation module then tests the strength and persistence of that relationship.
+
+### Two Phases
+
+- **Phase 1 (Semiconductors):** Proof of concept on 40 hand-picked semiconductor tickers using three clustering algorithms (OPTICS, DBSCAN, KMeans). Results in `research/` notebooks.
+- **Phase 2 (Cross-Sector):** Extension to 142 systematically screened tickers across 5 sectors. Uses a 5-test scored validation framework (replacing cointegration), enhanced backtesting with Kalman hedge ratios, and permutation testing. Results in `screener/notebooks/`.
 
 ### Architecture
 
-The project is organized into three main components:
-
 1. **Validation Module** (`validation/pair_validation.py`): Core statistical testing library
-   - Cluster persistence: Measures how consistently two assets remain in the same cluster over a rolling window. Higher persistence = stronger, more reliable relationship.
-   - Spread computation: Calculates the spread between two assets using a beta hedge ratio
-   - Mean reversion metrics: Computes autocorrelation (AR(1) lag-1 and lag-1 φ coefficient) and bounce rate to assess the quality of the relationship
-   - Main entry point: `validate_pair()` function that computes all metrics for a single pair at a given timestamp
+   - Hedge ratio estimation (OLS, Kalman), half-life, Hurst exponent, spread computation
+   - `validate_pair()`: computes all metrics for a single pair at a given timestamp
+   - `feature_shuffle_permutation_test()`: statistical significance testing
 
-2. **Research Notebooks** (`research/`): Exploratory analysis and algorithm testing
-   - Clustering algorithms: KMeans, DBScan, OPTICS (variants for different parameter tuning)
-     - **OPTICS** is the primary algorithm of interest—best at detecting variable-density clusters and short-term relationship formations
-   - Pair analysis: gold-vs-dxy investigates specific commodity pairs as test cases
-   - Validation testing: validation-testing.ipynb validates the pair_validation module logic
+2. **Signals Module** (`signals/`): Feature engineering and clustering
+   - `features.py`: 9-feature computation per ticker (volatility, beta, RSI, regime shifts)
+   - `detection.py`: Clustering pipeline, formation/dissolution event detection
+   - `transient.py`: Transient event validation
+   - `stable.py`: Stable pair tracking
 
-3. **Trading Module** (`trading/trading.py`): Placeholder for future trading execution logic
+3. **Trading Module** (`trading/trading.py`): Backtesting and pair analysis
+   - Z-score mean-reversion strategy, walk-forward validation
+   - Pair registry construction, noise-adjusted frequency computation
+
+4. **Screener Module** (`screener/`): Phase 2 cross-sector analysis
+   - `screening.py` / `universe.py`: 3-layer screening pipeline (liquidity, sector, quality)
+   - `analysis.py`: 5-test scored validation (ADF, half-life, Hurst, variance ratio, rolling correlation)
+   - `enhanced_backtest.py`: Adaptive z-score optimization, Kalman hedge, transaction costs
+   - `notebooks/01-05`: Full analysis pipeline (run in order)
+
+5. **Deliverables** (`deliverables/`): Final outputs
+   - `results_summary.md`: Comprehensive results covering both phases
+   - `build_presentation.py`: Generates 25-slide presentation
+   - `report.tex`: LaTeX technical report
 
 ### Key Concepts
 
-- **Relationship Formation**: Two assets that cluster together (same cluster ID at the same timestamp) indicate a relationship has formed. The validation module measures how strong and persistent this relationship is.
-- **Cluster Persistence**: A relationship is more reliable if both assets stay in the same cluster consistently over a rolling window H (default 5 periods).
-- **Mean Reversion Metrics**: AR(1) φ coefficient and lag-1 autocorrelation quantify how quickly the spread reverts toward equilibrium.
-- **Bounce Rate**: Measures the proportion of cases where the spread reverts by at least 30% within a 2-period horizon, indicating the relationship has predictable short-term mean reversion behavior.
-
-### Workflow
-
-1. Run clustering algorithms (KMeans, DBScan, OPTICS) on historical price data with rolling windows
-2. Identify timestamps where two assets cluster together (relationship formation events)
-3. Use the validation module to measure cluster persistence, mean reversion strength, and other metrics for each event
-4. Analyze the characteristics of strong relationship formations (higher persistence, better bounce rates)
-5. Look back at what preceded these events to identify leading indicators
-6. Build predictive models to forecast future relationship formations
+- **Transient Correlation**: Two assets that cluster together at the same timestamp. Unlike cointegration, these relationships form and dissolve over time.
+- **Noise-Adjusted Frequency**: Co-clustering rate using only timestamps where both tickers are non-noise as denominator. Essential for OPTICS (58% noise rate).
+- **5-Test Validation**: ADF, half-life, Hurst, variance ratio, rolling correlation stability. Score 0-5; tradeable at score >= 3.
+- **Kalman Terminal Beta**: Kalman filter estimates hedge ratio on calibration data only; fixed beta applied to OOS. Avoids artificial mean-reversion from adaptive updates.
 
 ## Development Environment
 
-Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-Dependencies: numpy, pandas, yfinance, scikit-learn, statsmodels, pandas-ta-classic, pykalman, jupyter, matplotlib, seaborn, plotly
+Dependencies: numpy, pandas, yfinance, scikit-learn, statsmodels, pandas-ta-classic, pykalman, scipy, jupyter, matplotlib, seaborn, plotly, pytest, yfscreen
 
 ## Common Commands
 
-**Run notebooks**: `jupyter notebook` then navigate to research folder
+- **Run tests**: `pytest tests/`
+- **Run notebooks**: `jupyter notebook`
+- **Build presentation**: `python3 deliverables/build_presentation.py`
+- **Phase 2 pipeline**: Run `screener/notebooks/01` through `05` in order
 
-**Test pair validation**: Use `validation/pair_validation.py` with test data in notebooks, or write a test script that imports and calls `validate_pair()` with sample DataFrames
+## Important Notes
 
-**Explore pair validation metrics**: validation-testing.ipynb demonstrates how the validation module works and shows example metrics
-
-## Important Notes for Implementation
-
-- The `validate_pair()` function expects aligned timestamps between `prices` DataFrame and `cluster_history` DataFrame
-- All validation metrics return `np.nan` if insufficient data; handle this in calling code
-- The bounce rate calculation uses rolling z-scores, not pre-optimized thresholds; this avoids look-ahead bias
-- The `drop_noise_now` parameter in `validate_pair()` filters pairs where either asset has cluster_id == -1 (DBSCAN noise cluster)
-- Short-term relationship detection: This project differs from cointegration analysis. Focus on clusters that form and dissolve relatively quickly, not long-term equilibrium relationships
-- Algorithm comparison: All three clustering algorithms (KMeans, DBScan, OPTICS) should be tested on the same historical data to compare which best captures event-driven relationship formations
-- OPTICS advantages: Variable density clusters, better at finding clusters that form transiently (which is the target use case)
+- `validate_pair()` expects aligned timestamps between `prices` and `cluster_history` DataFrames
+- All validation metrics return `np.nan` if insufficient data
+- The `drop_noise_now` parameter filters pairs where either asset has cluster_id == -1
+- Cointegration fails on transient correlations by design (0% pass rate) — use the 5-test framework instead
+- OPTICS is the primary algorithm: best at detecting variable-density clusters and transient formations
+- Kalman spread must use fixed terminal beta, not adaptive updates (see `screener/enhanced_backtest.py`)
+- Sharpe ratios require >= 5 OOS trades to be meaningful; pairs with fewer trades get NaN
