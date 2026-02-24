@@ -153,7 +153,7 @@ def generate_transient_signals(ticker_a, ticker_b, ts_df,
 
     Returns
     -------
-    dict with z_score, signal ('long', 'short', 'exit', 'wait'), spread_cv, half_life.
+    dict with z_score, signal ('long', 'short', 'exit', 'hold'), spread_cv, half_life.
     """
     if cfg is None:
         cfg = DEFAULT_CONFIG.transient
@@ -198,7 +198,7 @@ def generate_transient_signals(ticker_a, ticker_b, ts_df,
     elif abs(z) <= cfg.exit_z:
         signal = 'exit'
     else:
-        signal = 'wait'
+        signal = 'hold'
 
     return {
         'ticker_a': ticker_a,

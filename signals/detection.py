@@ -233,9 +233,18 @@ def detect_formation_events(cluster_history, pair_co_cluster_freq,
                         'Formation_Time': ts,
                     })
                 elif not in_cluster:
+                    # Re-entered cluster before min_gap_hours elapsed —
+                    # treat as a new formation so every duration record
+                    # has a corresponding formation entry.
                     in_cluster = True
                     formation_ts = ts
                     formation_idx = i
+                    formations.append({
+                        'Ticker_1': pair[0],
+                        'Ticker_2': pair[1],
+                        'Pair': f"{pair[0]}-{pair[1]}",
+                        'Formation_Time': ts,
+                    })
                 gap_count = 0
             else:
                 if in_cluster:

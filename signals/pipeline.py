@@ -214,13 +214,27 @@ class TransientPipeline:
 
     @property
     def top_pairs(self):
-        """Return pairs sorted by co-clustering frequency."""
+        """Return pairs sorted by noise-adjusted co-clustering frequency.
+
+        Noise-adjusted frequency uses as denominator only the timestamps
+        where *both* tickers are non-noise (cluster_id != -1), matching
+        the methodology described in the research deliverables.
+        """
         if self.pair_co_cluster_freq is None:
             return []
-        total = self.cluster_history['Datetime'].nunique()
-        pairs = [
-            {'pair': f'{a}-{b}', 'ticker_a': a, 'ticker_b': b,
-             'count': cnt, 'frequency': cnt / total}
-            for (a, b), cnt in self.pair_co_cluster_freq.items()
-        ]
+
+        # Pre-compute per-ticker non-noise timestamp sets
+        non_noise = self.cluster_history[self.cluster_history['Cluster_ID'] != -1]
+        ticker_non_noise_ts = non_noise.groupby('Ticker')['Datetime'].apply(set).to_dict()
+
+        pairs = []
+        for (a, b), cnt in self.pair_co_cluster_freq.items():
+            ts_a = ticker_non_noise_ts.get(a, set())
+            ts_b = ticker_non_noise_ts.get(b, set())
+            both_non_noise = len(ts_a & ts_b)
+            freq = cnt / both_non_noise if both_non_noise > 0 else 0.0
+            pairs.append({
+                'pair': f'{a}-{b}', 'ticker_a': a, 'ticker_b': b,
+                'count': cnt, 'frequency': freq,
+            })
         return sorted(pairs, key=lambda x: x['frequency'], reverse=True)

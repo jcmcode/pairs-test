@@ -181,14 +181,6 @@ def compute_hedge_ratio(prices_a, prices_b, method='ols'):
         from pykalman import KalmanFilter
         obs = a
         n = len(obs)
-        kf = KalmanFilter(
-            transition_matrices=np.eye(2),
-            observation_matrices=np.column_stack([b, np.ones(n)])[:1],
-            initial_state_mean=[0, 0],
-            initial_state_covariance=np.eye(2),
-            observation_covariance=1.0,
-            transition_covariance=0.01 * np.eye(2),
-        )
         state_means = np.zeros((n, 2))
         state_cov = np.eye(2)
         state = np.array([0.0, 0.0])
@@ -366,16 +358,24 @@ def simulate_spread_pnl(spread, signals_df, cost_per_trade=0.0):
 
     wins = sum(1 for t in trades if t > 0)
     trade_arr = np.array(trades)
-    sharpe = trade_arr.mean() / trade_arr.std() if trade_arr.std() > 0 else np.nan
+    per_trade_sharpe = trade_arr.mean() / trade_arr.std() if trade_arr.std() > 0 else np.nan
     running_max = pnl_series.cummax()
     drawdown = pnl_series - running_max
     max_dd = float(drawdown.min())
+
+    # Annualized Sharpe from daily returns of the cumulative P&L curve
+    daily_returns = pnl_series.diff().dropna()
+    if len(daily_returns) >= 3 and daily_returns.std() > 0:
+        ann_sharpe = float(daily_returns.mean() / daily_returns.std() * np.sqrt(252))
+    else:
+        ann_sharpe = np.nan
 
     return {
         'total_pnl': float(cumulative),
         'n_trades': n_trades,
         'win_rate': float(wins / n_trades),
-        'sharpe': float(sharpe),
+        'sharpe': float(per_trade_sharpe),
+        'sharpe_annualized': ann_sharpe,
         'max_drawdown': max_dd,
         'pnl_series': pnl_series,
     }
@@ -389,8 +389,8 @@ def feature_shuffle_permutation_test(
     ts_df,
     features_to_cluster,
     optics_params,
-    pair_co_cluster_freq,
-    total_valid_windows,
+    pair_co_cluster_freq=None,
+    total_valid_windows=None,
     n_permutations=30,
     n_sample_timestamps=80,
 ):
@@ -410,10 +410,11 @@ def feature_shuffle_permutation_test(
         Feature column names used for clustering.
     optics_params : dict
         OPTICS parameters (min_samples, xi, min_cluster_size).
-    pair_co_cluster_freq : dict
-        Mapping (ticker_a, ticker_b) -> observed co-cluster count.
-    total_valid_windows : int
-        Total number of valid clustering windows in the observed data.
+    pair_co_cluster_freq : dict, optional
+        Kept for backward compatibility; not used internally.
+        Observed counts are recomputed on the sampled timestamps.
+    total_valid_windows : int, optional
+        Kept for backward compatibility; not used internally.
     n_permutations : int
         Number of permutations to run.
     n_sample_timestamps : int
@@ -423,7 +424,8 @@ def feature_shuffle_permutation_test(
     -------
     dict with:
         - pair_zscores: dict mapping pair -> Z-score
-        - fraction_significant: fraction of tested pairs significant at p<0.05
+        - fraction_significant: fraction of tested pairs significant at
+          one-sided p < 0.05 (Z > 1.645)
         - null_counts: dict mapping pair -> list of permuted counts
     """
     all_timestamps = ts_df.index.get_level_values('Datetime').unique()
@@ -499,11 +501,13 @@ def feature_shuffle_permutation_test(
         while len(null_counts[key]) < n_permutations:
             null_counts[key].append(0)
 
-    # Compute Z-scores using observed counts on same sampled timestamps
+    # Compute Z-scores using observed counts on same sampled timestamps.
+    # Only score pairs that were actually observed in the sampled data —
+    # pairs from pair_co_cluster_freq that didn't appear in the sample
+    # would get obs_val=0 and misleading z-scores.
     pair_zscores = {}
-    all_pairs = set(obs_counts_sampled.keys()) | set(pair_co_cluster_freq.keys())
-    for pair in all_pairs:
-        obs_val = obs_counts_sampled.get(pair, 0)
+    for pair in obs_counts_sampled:
+        obs_val = obs_counts_sampled[pair]
         null_vals = np.array(null_counts.get(pair, [0] * n_permutations), dtype=float)
         null_mean = null_vals.mean()
         null_std = null_vals.std()
@@ -513,7 +517,8 @@ def feature_shuffle_permutation_test(
             z = 0.0 if obs_val <= null_mean else np.inf
         pair_zscores[pair] = float(z)
 
-    n_significant = sum(1 for z in pair_zscores.values() if z > 1.96)
+    # One-sided test: Z > 1.645 corresponds to p < 0.05
+    n_significant = sum(1 for z in pair_zscores.values() if z > 1.645)
     frac_sig = n_significant / len(pair_zscores) if pair_zscores else 0.0
 
     return {

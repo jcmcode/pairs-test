@@ -58,10 +58,10 @@ def fetch_data(tickers=None, period="252d", interval="1h"):
 
 
 def _calculate_rsi(data, window=70):
-    """RSI calculation on a price Series or DataFrame."""
+    """RSI calculation using Wilder's smoothing (EMA with alpha=1/window)."""
     delta = data.diff()
-    gain = delta.where(delta > 0, 0).rolling(window=window).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    gain = delta.where(delta > 0, 0).ewm(alpha=1 / window, min_periods=window).mean()
+    loss = (-delta.where(delta < 0, 0)).ewm(alpha=1 / window, min_periods=window).mean()
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 

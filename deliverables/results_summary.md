@@ -10,7 +10,7 @@ This document summarizes the complete results of the two-phase research project 
 
 ### Phase 1: Semiconductors
 - **40 hand-picked semiconductor tickers** (NVDA, TSM, AVGO, AMAT, LRCX, KLAC, etc.)
-- ~11 months hourly data (March 2025 -- February 2026, ~1,580 timestamps)
+- ~12 months hourly data (March 2025 -- February 2026, ~1,580 timestamps)
 - Single sector, manually curated
 
 ### Phase 2: Cross-Sector Expansion
@@ -33,7 +33,7 @@ This document summarizes the complete results of the two-phase research project 
 | Volatility | Short-term rolling σ | 50h (~1 week) |
 | Market exposure | Rolling β to S&P 500 | 50h |
 | Sector exposure | Rolling β to leave-one-out sector avg | 50h |
-| Momentum | RSI | 70h (~2 weeks) |
+| Momentum | RSI (Wilder's EMA) | 70h (~2 weeks) |
 | Momentum | 5-hour return | Instantaneous |
 | Regime shift | Δσ (short − medium vol) | 50h vs 147h |
 | Regime shift | Δβ_SPX (short − medium) | 50h vs 147h |
@@ -61,19 +61,16 @@ All 142 tickers clustered together in a single combined universe (not per-sector
 
 - OPTICS parameters: `min_samples=3, xi=0.05, min_cluster_size=3`
 - Noise threshold: skip snapshots with >75% noise
-- 8,065 co-clustering pairs identified by OPTICS
+- 7,836 co-clustering pairs identified by OPTICS
 - Noise-adjusted frequency used: denominator counts only timestamps where both tickers are non-noise
 
 ### Pair Counts at Frequency Thresholds
 
 | Threshold | Total Pairs | Intra-Sector | Cross-Sector |
 |-----------|-------------|--------------|--------------|
-| 0.05 | 255 | 216 | 39 |
-| **0.08 (default)** | **109** | **104** | **5** |
-| 0.10 | 71 | 69 | 2 |
-| 0.15 (Phase 1 default) | 26 | 26 | 0 |
+| **0.08 (default)** | **3,643** | **1,442** | **2,201** |
 
-At threshold 0.08: **3,712 pairs** pass (when including lower-frequency pairs captured by the full analysis pipeline).
+**Important distinction:** At the 0.08 noise-adjusted frequency threshold, 3,643 pairs are included for 5-test validation. Noise-adjusted frequency uses as denominator only the timestamps where *both* tickers are non-noise (cluster_id != -1).
 
 ---
 
@@ -97,11 +94,11 @@ Each test scores 0 or 1; total score ranges 0–5.
 
 | Test | Threshold | Pass Rate | Role |
 |------|-----------|-----------|------|
-| ADF on spread | p < 0.10 | **38.4%** (1,425/3,712) | Spread stationarity — hard test, low ADF power on ~136 days |
-| Half-life | 5–60 days | **82.3%** (3,056/3,712) | Speed of mean reversion — moderate filter |
-| Hurst exponent | H < 0.5 | **90.6%** (3,363/3,712) | Confirms mean-reverting — easy, not discriminating |
-| Variance ratio | Reject RW at 10% | **21.2%** (788/3,712) | Lo-MacKinlay test — hardest, detects short-run mean-reversion |
-| Rolling corr stability | > 0.5 | **33.7%** (1,250/3,712) | Pearson on daily returns (not price levels) across 4 sub-windows |
+| ADF on spread | p < 0.10 | **38.3%** (1,395/3,643) | Spread stationarity — hard test, low ADF power on ~136 days |
+| Half-life | 5–60 days | **82.3%** (2,998/3,643) | Speed of mean reversion — moderate filter |
+| Hurst exponent | H < 0.5 | **90.5%** (3,296/3,643) | Confirms mean-reverting — easy, not discriminating |
+| Variance ratio | Reject RW at 10% | **21.8%** (793/3,643) | Lo-MacKinlay test — hardest, detects short-run mean-reversion |
+| Rolling corr stability | > 0.5 | **34.7%** (1,264/3,643) | Pearson on daily returns (not price levels) across 4 sub-windows |
 
 **Classification:**
 - **Strong (4–5/5):** High-confidence — multiple independent tests confirm mean-reversion
@@ -113,43 +110,42 @@ Each test scores 0 or 1; total score ranges 0–5.
 
 | Classification | Count | Percentage |
 |---------------|-------|------------|
-| Strong (4–5) | 596 | 16.1% |
-| Moderate (3) | 1,572 | 42.3% |
-| Weak (2) | 1,235 | 33.3% |
-| Fail (0–1) | 309 | 8.3% |
-| **Total** | **3,712** | |
+| Strong (4–5) | 605 | 16.6% |
+| Moderate (3) | 1,543 | 42.4% |
+| Weak (2) | 1,200 | 32.9% |
+| Fail (0–1) | 295 | 8.1% |
+| **Total** | **3,643** | |
 
-**2,168 pairs (58.4%) score ≥ 3** — classified as tradeable.
+**2,148 pairs (59.0%) score ≥ 3** — classified as tradeable.
 
 ---
 
 ## 6. Intra-Sector vs Cross-Sector
 
-| Type | Pairs | Strong | Moderate | Avg Score | Pass Rate | Avg Sharpe | Best Sharpe | Profitable % |
-|------|-------|--------|----------|-----------|-----------|------------|-------------|-------------|
-| Cross-sector | 2,248 | 313 | 921 | 2.60 | 13.9% | 1.59 | 2.56 | 41.4% |
-| Intra-sector | 1,464 | 283 | 651 | 2.75 | 19.3% | 1.95 | 1.96 | 42.0% |
+| Type | Pairs | Strong | Moderate | Avg Score | Tradeable % | Avg Sharpe | Best Sharpe | Profitable % |
+|------|-------|--------|----------|-----------|-------------|------------|-------------|-------------|
+| Cross-sector | 2,201 | 323 | 900 | 2.62 | 55.6% | 1.59 | 2.56 | 40.8% |
+| Intra-sector | 1,442 | 282 | 643 | 2.77 | 64.1% | 1.95 | 1.96 | 42.4% |
 
-Intra-sector pairs have higher average scores and pass rates, but cross-sector pairs produce the highest individual Sharpe (2.56).
+"Tradeable %" = fraction of pairs scoring >= 3. Intra-sector pairs have higher average scores and tradeable rates, but cross-sector pairs produce the highest individual Sharpe (2.56).
 
 ---
 
-## 7. Sector Pair Matrix (Top 10)
+## 7. Sector Pair Matrix (Top Combinations)
+
+Sector pairs are shown in canonical order (alphabetical). Counts combine both directions.
 
 | Sector 1 | Sector 2 | Pairs | Tradeable | Avg Score | Avg Sharpe |
 |----------|----------|-------|-----------|-----------|------------|
-| Technology | Technology | 903 | 513 | 2.62 | 1.93 |
-| Energy | Energy | 262 | 225 | 3.10 | — |
-| Industrials | Technology | 250 | 164 | 2.82 | 2.56 |
-| Healthcare | Technology | 221 | 122 | 2.59 | 0.57 |
-| Technology | Healthcare | 205 | 112 | 2.64 | — |
-| Healthcare | Healthcare | 183 | 123 | 2.88 | — |
-| Technology | Financial Services | 180 | 96 | 2.56 | — |
-| Financial Services | Technology | 175 | 99 | 2.67 | 1.65 |
-| Technology | Industrials | 173 | 93 | 2.58 | — |
-| Technology | Energy | 138 | 59 | 2.44 | — |
+| Technology | Technology | 880 | 504 | 2.64 | 1.93 |
+| Energy | Energy | 270 | 230 | 3.09 | -- |
+| Industrials | Technology | 243 | 155 | 2.79 | 2.56 |
+| Healthcare | Technology | 197 | 105 | 2.57 | 0.57 |
+| Healthcare | Healthcare | 183 | 123 | 2.88 | -- |
+| Financial Services | Technology | 173 | 94 | 2.65 | -- |
+| Technology | Energy | 138 | 59 | 2.44 | -- |
 
-Energy-Energy pairs have the highest average score (3.10). Industrials-Technology produces the highest average Sharpe (2.56).
+Energy-Energy pairs have the highest average score (3.09). Industrials-Technology produces the highest average Sharpe (2.56). Avg Sharpe shown only for combinations where >= 5 OOS trades occurred.
 
 ---
 
@@ -184,9 +180,11 @@ The **APLD cluster** (APLD/HUT/CIFR/IREN) consists of crypto mining infrastructu
 
 | Strategy | Description | Pairs w/ Trades | Avg Trades | Profitable % | Avg PnL |
 |----------|-------------|----------------|------------|-------------|---------|
-| **Baseline** | Static z=2.0, OLS hedge, no costs | 95 | 2.3 | 53% | 0.356 |
-| **Enhanced** | Optimized z-score, OLS hedge, 10bps costs | 94 | 2.9 | 50% | 0.378 |
-| **Kalman** | Optimized z-score, Kalman terminal beta, 10bps costs | 94 | 2.8 | **59%** | 0.408 |
+| **Baseline** | Static z=2.0, OLS hedge, no costs | 50 | 1.9 | 54% | 0.123 |
+| **Enhanced** | Optimized z-score, OLS hedge, 10bps costs | 49 | 2.8 | 57% | 0.166 |
+| **Kalman** | Optimized z-score, Kalman terminal beta, 10bps costs | 50 | 2.6 | **64%** | 0.895 |
+
+**Why 50 of 2,148 tradeable pairs?** The enhanced backtest runs on the top 50 tradeable pairs by noise-adjusted frequency. The z-score optimizer requires >= 3 profitable calibration trades to produce valid parameters. The Kalman strategy now runs independently of OLS optimization, falling back to default z-score params when the optimizer returns None.
 
 ### Adaptive Z-Score Optimization
 - Grid search on calibration data only (no look-ahead)
@@ -198,10 +196,11 @@ An earlier version used adaptive Kalman spread (beta updated each OOS step), whi
 
 ### Walk-Forward Validation (5-Split Rolling)
 
-| Pair | Splits | Avg Sharpe | Std Sharpe | Best Split Sharpe | Total Trades |
-|------|--------|------------|------------|-------------------|-------------|
-| RUN-VNET | 5 | **3.47** | 1.06 | 4.08 | 13 |
-| NVDA-ORCL | 5 | **2.59** | 3.10 | 0.39 | 9 |
+| Pair | Splits | Avg Sharpe | Std Sharpe | Total Trades |
+|------|--------|------------|------------|-------------|
+| AFRM-ZETA | 5 | **2.07** | 1.13 | 11 |
+| ENPH-RUN | 5 | **1.82** | 0.82 | 6 |
+| COP-CVE | 5 | 0.45 | 0.57 | 16 |
 
 Walk-forward validates that the top pairs maintain performance across multiple temporal splits, not just one lucky OOS window.
 
@@ -218,26 +217,27 @@ Feature-shuffle permutation test (30 permutations, 80 sampled timestamps):
 
 | Metric | Value |
 |--------|-------|
-| Total pairs tested | 8,086 |
-| Significant at Z > 1.96 | **943** (11.7%) |
-| Top Z-score | PBR-PBR-A: 39.92 |
+| Total pairs tested | 3,539 |
+| Significant at Z > 1.645 (one-sided p < 0.05) | **1,148** (32.4%) |
+| Significant at Z > 1.96 | **940** (26.6%) |
+| Top Z-score | PBR-PBR-A: 38.59 |
 
 ### Top 10 Significant Pairs
 
 | Pair | Z-Score | Sector |
 |------|---------|--------|
-| PBR-PBR-A | 39.92 | Energy |
-| AAL-DAL | 38.10 | Industrials |
-| CVX-XOM | 34.23 | Energy |
-| DAL-UAL | 32.92 | Industrials |
-| AAL-UAL | 29.96 | Industrials |
-| COP-OXY | 29.44 | Energy |
-| BP-COP | 23.89 | Energy |
-| HAL-SLB | 23.67 | Energy |
-| COP-DVN | 23.13 | Energy |
-| AMAT-LRCX | 22.55 | Technology |
+| PBR-PBR-A | 38.59 | Energy |
+| AAL-DAL | 38.19 | Industrials |
+| AAL-UAL | 36.83 | Industrials |
+| DAL-UAL | 34.03 | Industrials |
+| HAL-SLB | 32.08 | Energy |
+| KMI-WMB | 30.65 | Energy |
+| DVN-OXY | 27.04 | Energy |
+| CVX-XOM | 26.86 | Energy |
+| SU-XOM | 25.86 | Energy |
+| AMAT-LRCX | 25.13 | Technology |
 
-Airline and energy sectors dominate the statistically significant pairs. 575 pairs are both significant (Z > 1.96) AND tradeable (score ≥ 3).
+Airline and energy sectors dominate the statistically significant pairs. 671 pairs are both significant (Z > 1.645) AND tradeable (score ≥ 3).
 
 ---
 
@@ -246,30 +246,47 @@ Airline and energy sectors dominate the statistically significant pairs. 575 pai
 | Metric | Phase 1 Semiconductors | Phase 2 Cross-Sector (Baseline) | Phase 2 (Enhanced) |
 |--------|----------------------|-------------------------------|-------------------|
 | Universe | 40 tickers, 1 sector | 142 tickers, 5 sectors | Same |
-| Pairs tested | ~33 | 3,712 | 95 tradeable |
-| Profitable OOS | 54% | 53% | 50% (enhanced) / 59% (Kalman) |
-| Top Sharpe | 3.55 | N/A (<5 trades) | 7.13 (2 trades) |
+| Pairs tested | ~33 | 3,643 | 50 (top by freq) |
+| Profitable OOS | 54% | 41% | 57% (enhanced) / 64% (Kalman) |
+| Top Sharpe | 3.55 | 2.56 | 18.47 |
 | Validation | 3-test binary (coint, half-life, Hurst) | 5-test scored framework | Same |
 | Transaction costs | None | None (baseline) / 10bps | 10bps |
 
-Profitability is comparable (~53% vs 54%). The cross-sector universe finds dramatically more pairs but most lack sufficient OOS trades for robust Sharpe estimation.
+The Kalman strategy now runs independently of OLS optimization and shows the strongest profitability (64%). The cross-sector universe finds dramatically more pairs but most lack sufficient OOS trades for robust Sharpe estimation.
 
 ---
 
 ## 12. Key Takeaways
 
+### What This Project Proves
+
+The central contribution is **validating the clustering methodology itself** — proving that unsupervised clustering on price-derived features discovers real, statistically significant structure in equity markets. This is the hard part: establishing that the discovery engine works.
+
+The backtesting of persistent (high-frequency) pairs is a **validation exercise**, not the end goal. Pairs that repeatedly co-cluster (e.g., airlines, energy majors, semiconductor equipment) are tested with standard z-score mean-reversion to confirm the relationships have economic substance. This answers: *"Is the clustering finding anything real?"* — and the answer is clearly yes.
+
 ### What Works
 1. **Clustering discovers real economic relationships** — semiconductor subsectors, crypto mining clusters, energy pairs emerge from price data alone
-2. **5-test framework dramatically improves pass rates** — 58.4% tradeable vs ~0% with old cointegration-based criteria
-3. **Kalman hedge ratios outperform OLS** — 59% profitable vs 53% with transaction costs included
-4. **Walk-forward validates top pairs** — RUN-VNET (Sharpe 3.47) and NVDA-ORCL (2.59) hold across 5 temporal splits
-5. **Permutation test confirms 943 statistically significant pairs** — clustering structure is non-random
+2. **5-test framework dramatically improves pass rates** — 59.0% tradeable vs ~0% with old cointegration-based criteria
+3. **Kalman hedge ratios outperform OLS** — 64% profitable vs 54% baseline with transaction costs included
+4. **Walk-forward validates top pairs** — AFRM-ZETA (Sharpe 2.07) and ENPH-RUN (1.82) hold across 5 temporal splits
+5. **Permutation test confirms 1,148 statistically significant pairs** (one-sided p < 0.05) — clustering structure is non-random
 
-### What Doesn't Work
-1. **Cross-sector pairs are rare and weaker** — only 5 at 0.08 threshold; 13.9% pass rate vs 19.3% intra-sector
+### What Doesn't Work (in the current testing framework)
+1. **Cross-sector pairs are weaker** — 55.6% tradeable rate vs 64.1% intra-sector
 2. **Consensus does not predict OOS performance** — Phase 1 consensus pairs underperformed non-consensus
 3. **Trade count is the binding constraint** — ~68 OOS days produces 2–3 trades per pair, limiting Sharpe estimation
 4. **Cointegration is wrong for transient correlations** — 0% pass rate by design
+
+### The Bigger Picture: Transient Event Trading
+
+The current backtest trades persistent pairs with a static strategy over the full OOS window — but the clustering detects **transient** relationships that form and dissolve on shorter timeframes (hours to days). There is an inherent tension: we select pairs that cluster *frequently*, then trade them continuously even when they are *not* in a cluster.
+
+The natural next step is **event-driven transient trading**: enter when a pair forms a cluster, exit when it dissolves. The formation/dissolution detection infrastructure already exists in the codebase (`signals/detection.py`, `signals/transient.py`). This approach would:
+- Trade *with* the clustering signal rather than despite it
+- Capture short-lived relationships that the current static strategy misses entirely
+- Exploit the speed and ephemerality of transient correlations as an edge — these are relationships most traders aren't even monitoring
+
+The persistent pairs that keep reappearing (airlines, energy majors) are a **byproduct** of those stocks having similar fundamentals. The unique value of the clustering methodology lies in detecting the brief, surprising formations that traditional pairs trading completely misses.
 
 ---
 
@@ -286,13 +303,14 @@ Profitability is comparable (~53% vs 54%). The cross-sector universe finds drama
 
 ## 14. Future Work
 
-| Item | Status |
-|------|--------|
-| Walk-forward validation | Done |
-| Adaptive hedge ratios (Kalman) | Done |
-| Expanded universe (multi-sector) | Done |
-| Transaction cost modeling | Done (10bps) |
-| Real-time pipeline | Remaining |
-| Regime-aware position sizing | Remaining |
-| Longer historical data | Remaining |
-| Portfolio-level optimization | Remaining |
+| Item | Status | Notes |
+|------|--------|-------|
+| Walk-forward validation | Done | 5-split rolling cal/OOS |
+| Adaptive hedge ratios (Kalman) | Done | Terminal beta approach |
+| Expanded universe (multi-sector) | Done | 142 tickers, 5 sectors |
+| Transaction cost modeling | Done | 10bps round-trip |
+| **Transient event trading** | **Next priority** | **Trade formation/dissolution events directly — the core application of this research** |
+| Real-time pipeline | Remaining | Live clustering → formation detection → signal generation |
+| Regime-aware position sizing | Remaining | Adjust exposure based on volatility regime |
+| Longer historical data | Remaining | Multi-year hourly data for robust estimation |
+| Portfolio-level optimization | Remaining | Correlated pairs risk management |

@@ -206,19 +206,24 @@ def enhanced_backtest_pair(
     # mean-reverts.
     beta_kal, _ = kalman_hedge_beta(prices_a_cal, prices_b_cal)
 
-    if not np.isnan(beta_kal) and opt is not None:
+    if not np.isnan(beta_kal):
         spread_oos_kal = pd.Series(
             np.asarray(prices_a_oos) - beta_kal * np.asarray(prices_b_oos),
             index=prices_a_oos.index if isinstance(prices_a_oos, pd.Series) else None,
         )
         result['kalman_beta'] = beta_kal
 
+        # Use optimized params if available, otherwise fall back to defaults
+        kal_entry_z = opt['entry_z'] if opt is not None else 2.0
+        kal_exit_z = opt['exit_z'] if opt is not None else 0.5
+        kal_lookback = opt['lookback'] if opt is not None else 20
+
         if len(spread_oos_kal) > 10:
-            lb_kal = min(opt['lookback'], len(spread_oos_kal) // 3)
+            lb_kal = min(kal_lookback, len(spread_oos_kal) // 3)
             if lb_kal >= 5:
                 sig_kal = zscore_signals(
                     spread_oos_kal, lb_kal,
-                    entry_z=opt['entry_z'], exit_z=opt['exit_z'],
+                    entry_z=kal_entry_z, exit_z=kal_exit_z,
                 )
                 bt_kal = simulate_spread_pnl(spread_oos_kal, sig_kal, cost_per_trade=cost_per_trade)
                 result['kalman_pnl'] = bt_kal['total_pnl']
@@ -244,7 +249,7 @@ def _empty_strategy(prefix):
         f'{prefix}_n_trades': 0,
         f'{prefix}_win_rate': np.nan,
         f'{prefix}_sharpe': np.nan,
-        f'{prefix}_max_dd': 0,
+        f'{prefix}_max_dd': np.nan,
         f'{prefix}_ann_sharpe': np.nan,
     }
 

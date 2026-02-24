@@ -216,7 +216,7 @@ class TestGenerateTransientSignals:
             'TICK_A', 'TICK_B', synthetic_ts_df, cfg,
         )
         if result is not None:
-            assert result['signal'] in ('long', 'short', 'exit', 'wait')
+            assert result['signal'] in ('long', 'short', 'exit', 'hold')
             assert 'z_score' in result
             assert 'beta' in result
 
