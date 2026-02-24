@@ -1,8 +1,9 @@
 /.venv
-
-/.DS_Store
+.vscode/
 __pycache__/
+.pytest_cache/
+.DS_Store
+*.pptx
+
 research/data/
 screener/data/
-
-.DS_Store

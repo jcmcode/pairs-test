@@ -637,7 +637,7 @@ text_box(slide, 0.8, 0.4, 10, 0.8, "Three-Strategy Comparison",
          font_size=28, bold=True, color=QUEENS_BLUE)
 
 text_box(slide, 0.8, 1.1, 11, 0.5,
-         "50 tradeable pairs backtested (of 2,148 scoring \u2265 3; remainder had insufficient calibration trades for z-score optimization).",
+         "50 tradeable pairs backtested (of 2,148 scoring \u2265 3; optimizer requires \u2265 5 calibration trades).",
          font_size=13, color=SUBTLE_GRAY)
 
 headers = ["Strategy", "Description", "Trades/Pair", "Profitable", "Avg PnL"]
@@ -774,7 +774,8 @@ text_box(slide, 0.8, 0.4, 10, 0.8, "Permutation Test: 1,148 Significant Pairs",
 
 text_box(slide, 0.8, 1.2, 11, 0.8,
          "Feature-shuffle test: at 80 sampled timestamps \u00d7 30 permutations, shuffle feature vectors across tickers "
-         "(preserving cross-feature correlation) and re-run the full pipeline. Compare observed co-clustering to null distribution.",
+         "(preserving cross-feature correlation) and re-run the full pipeline. Compare observed co-clustering to null distribution. "
+         "Primary threshold shown is Z > 1.645 (one-sided p < 0.05); stricter Z > 1.96 yields 940 pairs.",
          font_size=15, color=DARK_GRAY)
 
 # Summary stats in boxes
@@ -840,7 +841,7 @@ bullet_slide(slide, 7, 1.9, 5.8, 3.5, [
     "Consensus \u2260 profitability (Phase 1 finding)",
     "10bps flat cost is simplified (no slippage/impact)",
     "No portfolio-level risk management",
-    "Only 50 of 2,148 tradeable pairs had enough trades",
+    "Only 50 of 2,148 tradeable pairs met optimizer constraints (\u2265 5 calibration trades)",
 ], font_size=15, color=DARK_GRAY)
 
 # Bottom line

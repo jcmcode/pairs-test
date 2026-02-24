@@ -20,7 +20,6 @@ pairs-test/
 ├── signals/                        Signal detection and feature engineering
 │   ├── features.py                 9-feature computation (vol, beta, RSI, regime shifts)
 │   ├── detection.py                Clustering pipeline, formation/dissolution events
-│   ├── pipeline.py                 End-to-end signal pipeline
 │   ├── transient.py                Transient event validation
 │   └── stable.py                   Stable pair tracking
 │
@@ -51,7 +50,6 @@ pairs-test/
 ├── deliverables/                   Final outputs
 │   ├── results_summary.md          Comprehensive results (both phases)
 │   ├── build_presentation.py       Generates presentation.pptx (25 slides)
-│   ├── presentation.pptx           Generated slide deck
 │   └── report.tex                  LaTeX technical report
 │
 ├── tests/                          Test suite

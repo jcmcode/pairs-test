@@ -499,7 +499,7 @@ Grid search on calibration data only:
     \item Lookback: $\{10, 15, 20\}$ days
 \end{itemize}
 
-Scoring: maximize calibration Sharpe, requiring $\geq 3$ calibration trades. Returns \texttt{None} if no profitable parameter combination is found.
+Scoring: maximize calibration Sharpe, requiring $\geq 5$ calibration trades. Returns \texttt{None} if no profitable parameter combination is found.
 
 \subsection{Kalman Hedge Ratio}
 
@@ -526,7 +526,7 @@ Kalman    & Optimized $z$, Kalman $\beta$, 10bps & 2.6 & \textbf{64\%} & \textbf
 
 The Kalman strategy achieves the highest profitability (64\%) and average PnL (0.895), even with 10bps transaction costs. The enhanced optimizer generates more trades (2.8 vs 1.9 avg) by lowering entry thresholds.
 
-\textbf{Why 50 of 2,148 tradeable pairs?} The enhanced backtest runs on the top 50 tradeable pairs by noise-adjusted frequency. The z-score optimizer requires $\geq 3$ profitable calibration trades to produce valid parameters. The Kalman strategy now runs independently of OLS optimization, falling back to default z-score params when the optimizer returns None.
+\textbf{Why 50 of 2,148 tradeable pairs?} The enhanced backtest runs on the top 50 tradeable pairs by noise-adjusted frequency. The z-score optimizer requires $\geq 5$ calibration trades and a profitable calibration parameter set to produce optimized parameters. The Kalman strategy now runs independently of OLS optimization, falling back to default z-score params when the optimizer returns None.
 
 \subsection{Top Enhanced Pairs}
 
